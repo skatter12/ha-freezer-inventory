@@ -2,7 +2,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/skatter12/ha-freezer-inventory)](https://github.com/skatter12/ha-freezer-inventory/releases/latest)
 
-**Current version: 1.3.2**
+**Current version: 1.3.3**
 
 A Home Assistant integration that keeps track of what you have in your freezer.
 
@@ -79,6 +79,7 @@ data:
 
 ## Changelog
 
+- **1.3.3** - Min stock can be set to Off per item, overriding the default.
 - **1.3.2** - Min stock is now a collapsible row, opened with a button on the item.
 - **1.3.1** - Using more units than one batch holds continues into the next batch (oldest best-before first).
 - **1.3.0** - Minimum stock per item, counted in quantity or units.

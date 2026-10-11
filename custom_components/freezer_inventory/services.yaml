@@ -256,13 +256,14 @@ set_min_stock:
           mode: box
     min_unit:
       name: Counted in
-      description: Count the minimum in packages or in total units (pieces per package).
+      description: Count the minimum in packages or in total units (pieces per package). Use off to never add this item automatically, even if the default is on.
       default: packages
       selector:
         select:
           options:
             - packages
             - units
+            - "off"
     location:
       name: Location
       description: Freezer or fridge.

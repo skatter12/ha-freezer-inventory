@@ -43,6 +43,7 @@ from .const import (
     ATTR_MIN_STOCK,
     ATTR_MIN_UNIT,
     MIN_UNIT_PACKAGES,
+    MIN_UNIT_OFF,
     MIN_UNIT_UNITS,
     SERVICE_CLEAR,
     SERVICE_REMOVE_ITEM,
@@ -57,7 +58,7 @@ PLATFORMS = ["sensor"]
 
 PANEL_URL_PATH = "freezer-inventory"
 PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
-PANEL_VERSION = "1.3.2"
+PANEL_VERSION = "1.3.3"
 PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
 LOCATION = vol.All(vol.Lower, vol.In(LOCATIONS))
@@ -124,7 +125,7 @@ MIN_STOCK_SCHEMA = vol.Schema(
         vol.Required(ATTR_NAME): cv.string,
         vol.Optional(ATTR_MIN_STOCK): NON_NEGATIVE_FLOAT,
         vol.Optional(ATTR_MIN_UNIT, default=MIN_UNIT_PACKAGES): vol.In(
-            [MIN_UNIT_PACKAGES, MIN_UNIT_UNITS]
+            [MIN_UNIT_PACKAGES, MIN_UNIT_UNITS, MIN_UNIT_OFF]
         ),
         vol.Optional(ATTR_LOCATION, default=LOCATION_FREEZER): LOCATION,
         vol.Optional(ATTR_APPLIANCE): cv.string,
@@ -221,6 +222,8 @@ class FreezerInventory:
     ) -> tuple[float, str] | None:
         """Return (minimum, unit) for an item: its own setting, else the default."""
         for i in self._matches(name, None, location, appliance):
+            if i.get(ATTR_MIN_UNIT) == MIN_UNIT_OFF:
+                return None
             if i.get(ATTR_MIN_STOCK) is not None:
                 return i[ATTR_MIN_STOCK], i.get(ATTR_MIN_UNIT, MIN_UNIT_PACKAGES)
         if self.shop_on_empty:
@@ -344,7 +347,10 @@ class FreezerInventory:
                 ATTR_MIN_UNIT: MIN_UNIT_PACKAGES,
             }
             for other in self._matches(name, None, location, appliance):
-                if other.get(ATTR_MIN_STOCK) is not None:
+                if (
+                    other.get(ATTR_MIN_STOCK) is not None
+                    or other.get(ATTR_MIN_UNIT) == MIN_UNIT_OFF
+                ):
                     item[ATTR_MIN_STOCK] = other[ATTR_MIN_STOCK]
                     item[ATTR_MIN_UNIT] = other.get(ATTR_MIN_UNIT, MIN_UNIT_PACKAGES)
                     break

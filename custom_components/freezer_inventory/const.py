@@ -30,6 +30,7 @@ ATTR_MIN_STOCK = "min_stock"
 ATTR_MIN_UNIT = "min_unit"
 MIN_UNIT_PACKAGES = "packages"
 MIN_UNIT_UNITS = "units"
+MIN_UNIT_OFF = "off"
 
 CONF_FREEZER_TEMP = "freezer_temperature_entity"
 CONF_FRIDGE_TEMP = "fridge_temperature_entity"
