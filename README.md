@@ -2,16 +2,16 @@
 
 [![Latest release](https://img.shields.io/github/v/release/skatter12/ha-freezer-inventory)](https://github.com/skatter12/ha-freezer-inventory/releases/latest)
 
-**Current version: 0.7.0**
+**Current version: 0.7.1**
 
 A Home Assistant integration that keeps track of what you have in your freezer.
 
 ## Installation (HACS)
 
-1. In HACS, open the menu (top right) → **Custom repositories**.
+1. In HACS, open the menu (top right) - **Custom repositories**.
 2. Add `https://github.com/skatter12/ha-freezer-inventory` with category **Integration**.
 3. Install **Freezer Inventory** and restart Home Assistant.
-4. Go to **Settings → Devices & Services → Add Integration** and search for "Freezer Inventory".
+4. Go to **Settings - Devices & Services - Add Integration** and search for "Freezer Inventory".
 
 ### Manual
 
@@ -23,11 +23,11 @@ After setup a **Freezer** entry appears in the sidebar. The panel needs Home Ass
 
 Each item has:
 
-- **Quantity** – the number of packages.
-- **Per package** (optional) – how many units are in each package.
-- **Best before** (optional) – a date.
+- **Quantity** - the number of packages.
+- **Per package** (optional) - how many units are in each package.
+- **Best before** (optional) - a date.
 
-With 2 packages of 4, using 2 units gives `1 × 4 + 1 × 2 = 6`. The panel shows this breakdown and lets you edit both **Packages** and total **Units** (setting 5 units gives 2 packages: 4 + 1). Use the **Use** field to take units out of the open package; when it is empty the next package is opened.
+With 2 packages of 4, using 2 units gives `1 -- 4 + 1 -- 2 = 6`. The panel shows this breakdown and lets you edit both **Packages** and total **Units** (setting 5 units gives 2 packages: 4 + 1). Use the **Use** field to take units out of the open package; when it is empty the next package is opened.
 
 ### Adding to an existing item
 
@@ -37,12 +37,12 @@ Adding an item that already exists adds to it. If you give a **different best-be
 
 - `sensor.freezer_items` shows the total number of packages; every batch is listed in its `items` attribute (with an `id`).
 - Services (all take an optional batch `id`; without it the batch with the oldest best-before date is used):
-  - `freezer_inventory.add_item` – `name`, optional `quantity`, `package_size`, `best_before`.
-  - `freezer_inventory.remove_item` – `name`, optional `quantity` (omit to remove the whole batch).
-  - `freezer_inventory.set_quantity` – `name`, `quantity` (0 removes the batch).
-  - `freezer_inventory.set_units` – `name`, `units`. Sets the total units; packages are recalculated.
-  - `freezer_inventory.use_amount` – `name`, `amount`. Uses units from the oldest batches first.
-  - `freezer_inventory.clear` – empties the inventory.
+  - `freezer_inventory.add_item` - `name`, optional `quantity`, `package_size`, `best_before`.
+  - `freezer_inventory.remove_item` - `name`, optional `quantity` (omit to remove the whole batch).
+  - `freezer_inventory.set_quantity` - `name`, `quantity` (0 removes the batch).
+  - `freezer_inventory.set_units` - `name`, `units`. Sets the total units; packages are recalculated.
+  - `freezer_inventory.use_amount` - `name`, `amount`. Uses units from the oldest batches first.
+  - `freezer_inventory.clear` - empties the inventory.
 
 Example:
 
@@ -57,14 +57,15 @@ data:
 
 ## Changelog
 
+- **0.7.1** - Fixed README encoding so HACS shows it.
 - **0.7.0** - Selectable date format (saved per browser), each item in its own rounded box, earliest best-before date first and shown as a prominent badge.
-- **0.6.0** � Items are grouped by name with a total and "N dates" label; each item has an **Add** button for adding quantity, per package and a new best-before date.
-- **0.5.0** – Removed the unit field. Adding an existing item with a new best-before date creates a separate batch. Existing items are migrated automatically.
-- **0.4.0** – Panel shows packages and total units (e.g. 4 + 2 = 6) and both can be edited (`set_units`).
-- **0.3.0** – Package size and partial use (`use_amount`).
-- **0.2.2** – Panel updates immediately without a page refresh.
-- **0.2.0** – Sidebar panel with full UI.
-- **0.1.0** – Initial release.
+- **0.6.0** - Items are grouped by name with a total and "N dates" label; each item has an **Add** button for adding quantity, per package and a new best-before date.
+- **0.5.0** - Removed the unit field. Adding an existing item with a new best-before date creates a separate batch. Existing items are migrated automatically.
+- **0.4.0** - Panel shows packages and total units (e.g. 4 + 2 = 6) and both can be edited (`set_units`).
+- **0.3.0** - Package size and partial use (`use_amount`).
+- **0.2.2** - Panel updates immediately without a page refresh.
+- **0.2.0** - Sidebar panel with full UI.
+- **0.1.0** - Initial release.
 
 ## License
 

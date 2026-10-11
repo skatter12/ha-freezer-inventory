@@ -270,8 +270,8 @@ class FreezerInventoryPanel extends HTMLElement {
     const remaining = i.remaining ?? i.package_size;
     const full = i.quantity - 1;
     const parts = [];
-    if (full > 0) parts.push(`${full} × ${i.package_size}`);
-    parts.push(`1 × ${remaining}`);
+    if (full > 0) parts.push(`${full} x ${i.package_size}`);
+    parts.push(`1 x ${remaining}`);
     return `${parts.join(" + ")} = ${this._totalUnits(i)}`;
   }
 
@@ -285,7 +285,7 @@ class FreezerInventoryPanel extends HTMLElement {
     const open = this._open.has(name);
     return `<div class="fi-group">
       <div class="fi-gtitle"><b>${n}</b>
-        <span class="fi-meta">Total: ${pkgs} pkg${withSize.length ? ` / ${Math.round(units * 1e6) / 1e6} units` : ""}${dates > 1 ? ` � ${dates} dates` : ""}</span>
+        <span class="fi-meta">Total: ${pkgs} pkg${withSize.length ? ` / ${Math.round(units * 1e6) / 1e6} units` : ""}${dates > 1 ? ` - ${dates} dates` : ""}</span>
         <button class="secondary" data-action="toggle-add" data-name="${n}">${open ? "Close" : "Add"}</button></div>
       ${open ? `<div class="fi-addrow" data-name="${n}">
         <input type="number" min="1" value="1" placeholder="Quantity" data-f="quantity" />
@@ -340,7 +340,7 @@ class FreezerInventoryPanel extends HTMLElement {
                 : ""
             }
           </div>
-          <button class="secondary" data-action="dec" ${ref} data-qty="${i.quantity}">−</button>
+          <button class="secondary" data-action="dec" ${ref} data-qty="${i.quantity}">-</button>
           <label class="fi-field">Packages
             <input class="fi-qty" type="number" min="0" value="${i.quantity}" data-action="set" ${ref} />
           </label>
