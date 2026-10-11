@@ -14,9 +14,7 @@ from .const import (
     CONF_APPLIANCES,
     CONF_FREEZER_TEMP,
     CONF_FRIDGE_TEMP,
-    CONF_SHOP_MIN,
     CONF_SHOP_ON_ADD,
-    CONF_SHOP_ON_EMPTY,
     DOMAIN,
     LOCATION_FREEZER,
     LOCATION_FRIDGE,
@@ -57,9 +55,7 @@ def _settings_schema(defaults: dict[str, Any]) -> vol.Schema:
     for key in (CONF_FREEZER_TEMP, CONF_FRIDGE_TEMP):
         marker, sel = _optional_entity(key, defaults.get(key))
         fields[marker] = sel
-    for key in (CONF_SHOP_ON_EMPTY, CONF_SHOP_ON_ADD):
-        fields[vol.Optional(key, default=bool(defaults.get(key, False)))] = bool
-    fields[vol.Optional(CONF_SHOP_MIN, default=float(defaults.get(CONF_SHOP_MIN) or 0))] = vol.All(vol.Coerce(float), vol.Range(min=0))
+    fields[vol.Optional(CONF_SHOP_ON_ADD, default=bool(defaults.get(CONF_SHOP_ON_ADD, False)))] = bool
     return vol.Schema(fields)
 
 
@@ -138,8 +134,6 @@ class FreezerInventoryOptionsFlow(config_entries.OptionsFlow):
             changes = {
                 key: user_input.get(key) for key in (CONF_FREEZER_TEMP, CONF_FRIDGE_TEMP)
             }
-            changes[CONF_SHOP_ON_EMPTY] = user_input.get(CONF_SHOP_ON_EMPTY, False)
-            changes[CONF_SHOP_MIN] = user_input.get(CONF_SHOP_MIN, 0)
             changes[CONF_SHOP_ON_ADD] = user_input.get(CONF_SHOP_ON_ADD, False)
             return self._save(self._appliances, **changes)
         return self.async_show_form(

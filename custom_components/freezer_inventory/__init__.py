@@ -31,8 +31,6 @@ from .const import (
     ATTR_UNITS,
     CONF_APPLIANCES,
     CONF_SHOP_ON_ADD,
-    CONF_SHOP_MIN,
-    CONF_SHOP_ON_EMPTY,
     DOMAIN,
     EVENT_UPDATED,
     LOCATION_FREEZER,
@@ -58,7 +56,7 @@ PLATFORMS = ["sensor"]
 
 PANEL_URL_PATH = "freezer-inventory"
 PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
-PANEL_VERSION = "1.3.3"
+PANEL_VERSION = "1.4.0"
 PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
 LOCATION = vol.All(vol.Lower, vol.In(LOCATIONS))
@@ -156,8 +154,6 @@ class FreezerInventory:
         self.items: list[dict[str, Any]] = []
         self.revision = 0
         self.appliances: list[dict[str, Any]] = []
-        self.shop_on_empty = False
-        self.shop_min: float = 0
         self.shop_on_add = False
         self._store: Store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
 
@@ -220,14 +216,12 @@ class FreezerInventory:
     def _limit(
         self, name: str, location: str, appliance: str | None
     ) -> tuple[float, str] | None:
-        """Return (minimum, unit) for an item: its own setting, else the default."""
+        """Return (minimum, unit) for an item, or None when it has no minimum."""
         for i in self._matches(name, None, location, appliance):
             if i.get(ATTR_MIN_UNIT) == MIN_UNIT_OFF:
                 return None
             if i.get(ATTR_MIN_STOCK) is not None:
                 return i[ATTR_MIN_STOCK], i.get(ATTR_MIN_UNIT, MIN_UNIT_PACKAGES)
-        if self.shop_on_empty:
-            return self.shop_min, MIN_UNIT_UNITS
         return None
 
     def _level(
@@ -515,8 +509,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     inventory = FreezerInventory(hass)
     conf = {**entry.data, **entry.options}
     inventory.appliances = list(conf.get(CONF_APPLIANCES) or [])
-    inventory.shop_on_empty = bool(conf.get(CONF_SHOP_ON_EMPTY))
-    inventory.shop_min = float(conf.get(CONF_SHOP_MIN) or 0)
     inventory.shop_on_add = bool(conf.get(CONF_SHOP_ON_ADD))
     await inventory.async_load()
     hass.data[DOMAIN] = inventory

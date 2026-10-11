@@ -2,7 +2,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/skatter12/ha-freezer-inventory)](https://github.com/skatter12/ha-freezer-inventory/releases/latest)
 
-**Current version: 1.3.3**
+**Current version: 1.4.0**
 
 A Home Assistant integration that keeps track of what you have in your freezer.
 
@@ -50,8 +50,8 @@ When adding the integration you can pick a temperature entity (sensor or input_n
 Works with the built-in Home Assistant **Shopping List** integration.
 
 - Each item has a **Shopping list** button that adds it to the list.
-- Under **Configure** you can enable: automatically add an item to the shopping list when its stock falls to a **minimum stock** you set (0 = when it runs out; counted in units, or packages if no package size), and mark it as bought on the shopping list when you add stock.
-- Each item has its own **Min stock** field (empty = off). Choose whether it is counted in **Quantity** (packages) or **Units** (pieces per package). It overrides the default in Configure. Service `freezer_inventory.set_min_stock`.
+- Under **Configure** you can enable: mark an item as bought on the shopping list when you add stock.
+- Each item has a **Min stock** button. Set a number and choose **Quantity** (packages) or **Units** (pieces per package); when stock falls to that level the item is added to the shopping list. Leave it empty for no automatic adding. Service `freezer_inventory.set_min_stock`.
 - Service `freezer_inventory.add_to_shopping_list` (`name`) for automations.
 
 ## Automations and services
@@ -79,6 +79,7 @@ data:
 
 ## Changelog
 
+- **1.4.0** - Automatic shopping list adding is now controlled only per item (global minimum setting removed).
 - **1.3.3** - Min stock can be set to Off per item, overriding the default.
 - **1.3.2** - Min stock is now a collapsible row, opened with a button on the item.
 - **1.3.1** - Using more units than one batch holds continues into the next batch (oldest best-before first).

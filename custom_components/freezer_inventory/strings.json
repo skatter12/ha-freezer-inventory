@@ -7,8 +7,6 @@
         "data": {
           "freezer_temperature_entity": "Freezer temperature entity",
           "fridge_temperature_entity": "Fridge temperature entity",
-          "shopping_list_on_empty": "Automatically add to the shopping list when stock is low",
-          "shopping_list_min_stock": "Minimum stock (units, or packages if no package size) - add to the list when stock falls to this or below; 0 = when it runs out",
         "shopping_list_on_add": "Mark as bought on the shopping list when stock is added"
         }
       }
@@ -32,8 +30,6 @@
         "data": {
           "freezer_temperature_entity": "Freezer temperature entity",
           "fridge_temperature_entity": "Fridge temperature entity",
-          "shopping_list_on_empty": "Automatically add to the shopping list when stock is low",
-          "shopping_list_min_stock": "Minimum stock (units, or packages if no package size) - add to the list when stock falls to this or below; 0 = when it runs out",
         "shopping_list_on_add": "Mark as bought on the shopping list when stock is added"
         }
       },

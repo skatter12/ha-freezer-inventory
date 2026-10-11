@@ -386,22 +386,20 @@ class FreezerInventoryPanel extends HTMLElement {
     const n = this._esc(name);
     const open = this._open.has(name);
     const lim = batches.find((b) => b.min_stock !== null && b.min_stock !== undefined);
-    const isOff = batches.some((b) => b.min_unit === "off");
     const minVal = lim ? lim.min_stock : "";
-    const minUnit = isOff ? "off" : lim ? lim.min_unit : "packages";
+    const minUnit = lim && lim.min_unit === "units" ? "units" : "packages";
     return `<div class="fi-group">
       <div class="fi-gtitle"><b>${n}</b>
         <span class="fi-meta">Total: ${pkgs} pkg${withSize.length ? ` / ${Math.round(units * 1e6) / 1e6} units` : ""}${dates > 1 ? ` - ${dates} dates` : ""}</span>
         <button class="secondary" data-action="shop" data-name="${n}" title="Add to the Home Assistant shopping list">Shopping list</button>
-        <button class="secondary" data-action="toggle-min" data-name="${n}" title="Minimum stock for the shopping list">Min stock${isOff ? ": off" : minVal !== "" ? `: ${minVal}` : ""}</button>
+        <button class="secondary" data-action="toggle-min" data-name="${n}" title="Minimum stock for the shopping list">Min stock${minVal !== "" ? `: ${minVal}` : ""}</button>
         <button class="secondary" data-action="toggle-add" data-name="${n}">${open ? "Close" : "Add"}</button></div>
       ${this._minOpen.has(name) ? `<div class="fi-minrow" data-name="${n}" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0">
-        <small>Min stock (add to shopping list):</small>
+        <small>Add to shopping list at or below (empty = off):</small>
         <input type="number" min="0" step="any" value="${minVal}" placeholder="off" data-f="min" style="width:80px" />
         <select data-f="minunit">
           <option value="packages"${minUnit === "packages" ? " selected" : ""}>Quantity</option>
           <option value="units"${minUnit === "units" ? " selected" : ""}>Units (per quantity)</option>
-          <option value="off"${minUnit === "off" ? " selected" : ""}>Off (never add)</option>
         </select></div>` : ""}
       ${open ? `<div class="fi-addrow" data-name="${n}">
         <input type="number" min="1" value="1" placeholder="Quantity" data-f="quantity" />
