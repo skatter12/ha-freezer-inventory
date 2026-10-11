@@ -20,6 +20,7 @@ class FreezerInventoryPanel extends HTMLElement {
 
   _build() {
     this._built = true;
+    this._open = this._open || new Set();
     this.innerHTML = `
       <style>
         freezer-inventory-panel { display: block; }
@@ -54,6 +55,10 @@ class FreezerInventoryPanel extends HTMLElement {
         .fi-wrap .fi-use input { width: 90px; padding: 4px 6px; }
         .fi-wrap .fi-use button { padding: 4px 10px; }
         .fi-field { display: flex; flex-direction: column; font-size: 11px; align-items: center; }
+        .fi-gtitle { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+        .fi-gtitle .fi-meta { flex: 1; }
+        .fi-addrow { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+        .fi-addrow input { width: 130px; }
         .fi-empty { text-align: center; color: var(--secondary-text-color); padding: 24px 0; }
         @media (max-width: 600px) { .fi-wrap form { grid-template-columns: 1fr 1fr; } }
       </style>
@@ -112,6 +117,24 @@ class FreezerInventoryPanel extends HTMLElement {
     this.querySelector("#list").addEventListener("click", (ev) => {
       const btn = ev.target.closest("button[data-action]");
       if (!btn) return;
+      if (btn.dataset.action === "toggle-add") {
+        const nm = btn.dataset.name;
+        if (this._open.has(nm)) this._open.delete(nm);
+        else this._open.add(nm);
+        this._lastItems = null;
+        this._renderList();
+        return;
+      }
+      if (btn.dataset.action === "add-batch") {
+        const row = btn.closest(".fi-addrow");
+        const val = (f) => row.querySelector(`[data-f=${f}]`).value;
+        const data = { name: btn.dataset.name, quantity: parseInt(val("quantity"), 10) || 1 };
+        if (parseFloat(val("package_size")) > 0) data.package_size = parseFloat(val("package_size"));
+        if (val("best_before")) data.best_before = val("best_before");
+        this._open.delete(btn.dataset.name);
+        this._call("add_item", data);
+        return;
+      }
       const target = { name: btn.dataset.name, id: btn.dataset.id };
       const qty = parseInt(btn.dataset.qty, 10) || 0;
       if (btn.dataset.action === "use") {
@@ -207,6 +230,26 @@ class FreezerInventoryPanel extends HTMLElement {
     return `${parts.join(" + ")} = ${this._totalUnits(i)}`;
   }
 
+  _groupHead(name, items) {
+    const batches = items.filter((b) => b.name === name);
+    const pkgs = batches.reduce((s, b) => s + b.quantity, 0);
+    const withSize = batches.filter((b) => b.package_size);
+    const units = withSize.reduce((s, b) => s + this._totalUnits(b), 0);
+    const dates = new Set(batches.map((b) => b.best_before || "")).size;
+    const n = this._esc(name);
+    const open = this._open.has(name);
+    return `<div class="fi-group">
+      <div class="fi-gtitle"><b>${n}</b>
+        <span class="fi-meta">Total: ${pkgs} pkg${withSize.length ? ` / ${Math.round(units * 1e6) / 1e6} units` : ""}${dates > 1 ? ` � ${dates} dates` : ""}</span>
+        <button class="secondary" data-action="toggle-add" data-name="${n}">${open ? "Close" : "Add"}</button></div>
+      ${open ? `<div class="fi-addrow" data-name="${n}">
+        <input type="number" min="1" value="1" placeholder="Quantity" data-f="quantity" />
+        <input type="number" min="0" step="any" placeholder="Per package" data-f="package_size" />
+        <input type="date" data-f="best_before" />
+        <button data-action="add-batch" data-name="${n}">Add</button></div>` : ""}
+    </div>`;
+  }
+
   _renderList() {
     const stateObj = this._hass.states[ENTITY_ID];
     const items = this._items();
@@ -232,9 +275,10 @@ class FreezerInventoryPanel extends HTMLElement {
 
     this.querySelector("#list").innerHTML = shown.length
       ? shown
-          .map((i) => {
+          .map((i, idx) => {
+            const head = idx === 0 || shown[idx - 1].name !== i.name ? this._groupHead(i.name, items) : "";
             const ref = `data-name="${this._esc(i.name)}" data-id="${this._esc(i.id)}"`;
-            return `
+            return `${head}
         <div class="fi-item">
           <div class="fi-info">
             <div class="fi-name">${this._esc(i.name)}</div>

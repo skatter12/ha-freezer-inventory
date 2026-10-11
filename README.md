@@ -2,7 +2,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/skatter12/ha-freezer-inventory)](https://github.com/skatter12/ha-freezer-inventory/releases/latest)
 
-**Current version: 0.5.0**
+**Current version: 0.6.0**
 
 A Home Assistant integration that keeps track of what you have in your freezer.
 
@@ -57,6 +57,7 @@ data:
 
 ## Changelog
 
+- **0.6.0** � Items are grouped by name with a total and "N dates" label; each item has an **Add** button for adding quantity, per package and a new best-before date.
 - **0.5.0** – Removed the unit field. Adding an existing item with a new best-before date creates a separate batch. Existing items are migrated automatically.
 - **0.4.0** – Panel shows packages and total units (e.g. 4 + 2 = 6) and both can be edited (`set_units`).
 - **0.3.0** – Package size and partial use (`use_amount`).

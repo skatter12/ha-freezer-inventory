@@ -42,7 +42,7 @@ PLATFORMS = ["sensor"]
 
 PANEL_URL_PATH = "freezer-inventory"
 PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
-PANEL_VERSION = "0.5.0"
+PANEL_VERSION = "0.6.0"
 PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
 POSITIVE_FLOAT = vol.All(vol.Coerce(float), vol.Range(min=0, min_included=False))
