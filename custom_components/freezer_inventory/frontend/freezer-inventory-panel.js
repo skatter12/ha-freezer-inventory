@@ -197,7 +197,11 @@ class FreezerInventoryPanel extends HTMLElement {
       } else if (btn.dataset.action === "inc") {
         this._call("set_quantity", { ...target, quantity: qty + 1 });
       } else if (btn.dataset.action === "dec") {
-        this._call("set_quantity", { ...target, quantity: Math.max(1, qty - 1) });
+        if (qty <= 1) {
+          if (confirm("This is the last one in this batch. Remove the batch?")) this._call("remove_item", target);
+        } else {
+          this._call("set_quantity", { ...target, quantity: qty - 1 });
+        }
       } else if (btn.dataset.action === "del") {
         this._call("remove_item", target);
       }

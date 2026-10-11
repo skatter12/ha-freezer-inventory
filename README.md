@@ -2,7 +2,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/skatter12/ha-freezer-inventory)](https://github.com/skatter12/ha-freezer-inventory/releases/latest)
 
-**Current version: 0.10.0**
+**Current version: 0.10.1**
 
 A Home Assistant integration that keeps track of what you have in your freezer.
 
@@ -70,6 +70,7 @@ data:
 
 ## Changelog
 
+- **0.10.1** - Pressing - on the last package asks whether to remove the batch.
 - **0.10.0** - Shopping List integration: button per item, optional auto-add when an item runs out and auto-complete when stock is added.
 - **0.9.1** - Temperature shown on its own line in the tabs.
 - **0.9.0** - Optional freezer and fridge temperature entities in the setup and options, shown in the panel.
