@@ -9,7 +9,13 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers import selector
 
-from .const import CONF_FREEZER_TEMP, CONF_FRIDGE_TEMP, DOMAIN
+from .const import (
+    CONF_FREEZER_TEMP,
+    CONF_FRIDGE_TEMP,
+    CONF_SHOP_ON_ADD,
+    CONF_SHOP_ON_EMPTY,
+    DOMAIN,
+)
 
 TEMP_SELECTOR = selector.EntitySelector(
     selector.EntitySelectorConfig(domain=["sensor", "input_number"])
@@ -26,6 +32,8 @@ def _schema(defaults: dict[str, Any]) -> vol.Schema:
                 key, description={"suggested_value": suggested} if suggested else None
             )
         ] = TEMP_SELECTOR
+    for key in (CONF_SHOP_ON_EMPTY, CONF_SHOP_ON_ADD):
+        fields[vol.Optional(key, default=bool(defaults.get(key, False)))] = bool
     return vol.Schema(fields)
 
 

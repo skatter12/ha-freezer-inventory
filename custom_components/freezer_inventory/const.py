@@ -11,6 +11,7 @@ SERVICE_SET_QUANTITY = "set_quantity"
 SERVICE_SET_UNITS = "set_units"
 SERVICE_USE_AMOUNT = "use_amount"
 SERVICE_CLEAR = "clear"
+SERVICE_ADD_TO_SHOPPING_LIST = "add_to_shopping_list"
 
 ATTR_ID = "id"
 ATTR_NAME = "name"
@@ -26,6 +27,8 @@ ATTR_LOCATION = "location"
 
 CONF_FREEZER_TEMP = "freezer_temperature_entity"
 CONF_FRIDGE_TEMP = "fridge_temperature_entity"
+CONF_SHOP_ON_EMPTY = "shopping_list_on_empty"
+CONF_SHOP_ON_ADD = "shopping_list_on_add"
 
 LOCATION_FREEZER = "freezer"
 LOCATION_FRIDGE = "fridge"

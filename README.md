@@ -2,7 +2,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/skatter12/ha-freezer-inventory)](https://github.com/skatter12/ha-freezer-inventory/releases/latest)
 
-**Current version: 0.9.1**
+**Current version: 0.10.0**
 
 A Home Assistant integration that keeps track of what you have in your freezer.
 
@@ -37,6 +37,14 @@ Adding an item that already exists adds to it. If you give a **different best-be
 
 When adding the integration you can pick a temperature entity (sensor or input_number) for the freezer and for the fridge. Change them later under **Settings - Devices & Services - Freezer Inventory - Configure**. The current temperature is shown in the tabs and under them.
 
+## Shopping list
+
+Works with the built-in Home Assistant **Shopping List** integration.
+
+- Each item has a **Shopping list** button that adds it to the list.
+- Under **Configure** you can enable: add an item to the shopping list when it runs out (no batch left), and mark it as bought on the shopping list when you add stock.
+- Service `freezer_inventory.add_to_shopping_list` (`name`) for automations.
+
 ## Automations and services
 
 - `sensor.freezer_items` and `sensor.fridge_items` show the total number of packages; every batch is listed in their `items` attribute (with an `id`).
@@ -62,6 +70,7 @@ data:
 
 ## Changelog
 
+- **0.10.0** - Shopping List integration: button per item, optional auto-add when an item runs out and auto-complete when stock is added.
 - **0.9.1** - Temperature shown on its own line in the tabs.
 - **0.9.0** - Optional freezer and fridge temperature entities in the setup and options, shown in the panel.
 - **0.8.0** - Freezer and Fridge tabs with identical features; a `location` option on all services and a new `sensor.fridge_items`. Existing items stay in the freezer.

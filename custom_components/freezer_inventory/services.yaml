@@ -194,3 +194,13 @@ clear:
           options:
             - freezer
             - fridge
+add_to_shopping_list:
+  name: Add to shopping list
+  description: Add an item to the Home Assistant shopping list (requires the Shopping List integration).
+  fields:
+    name:
+      name: Name
+      description: Name of the item.
+      required: true
+      selector:
+        text:

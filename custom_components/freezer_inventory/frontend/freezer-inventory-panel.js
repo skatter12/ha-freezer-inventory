@@ -172,6 +172,12 @@ class FreezerInventoryPanel extends HTMLElement {
         this._renderList();
         return;
       }
+      if (btn.dataset.action === "shop") {
+        this._call("add_to_shopping_list", { name: btn.dataset.name }).then((ok) => ok &&
+          this._toast(`${btn.dataset.name} added to the shopping list`)
+        );
+        return;
+      }
       if (btn.dataset.action === "add-batch") {
         const row = btn.closest(".fi-addrow");
         const val = (f) => row.querySelector(`[data-f=${f}]`).value;
@@ -216,12 +222,19 @@ class FreezerInventoryPanel extends HTMLElement {
   }
 
   async _call(service, data) {
+    let ok = true;
     try {
       await this._hass.callService("freezer_inventory", service, { ...data, location: this._loc });
     } catch (err) {
+      ok = false;
       alert(`Freezer Inventory: ${err.message || err}`);
     }
     this._refreshSoon();
+    return ok;
+  }
+
+  _toast(message) {
+    this.dispatchEvent(new CustomEvent("hass-notification", { detail: { message }, bubbles: true, composed: true }));
   }
 
   // Re-render shortly after a change, in case the state push is delayed.
@@ -319,6 +332,7 @@ class FreezerInventoryPanel extends HTMLElement {
     return `<div class="fi-group">
       <div class="fi-gtitle"><b>${n}</b>
         <span class="fi-meta">Total: ${pkgs} pkg${withSize.length ? ` / ${Math.round(units * 1e6) / 1e6} units` : ""}${dates > 1 ? ` - ${dates} dates` : ""}</span>
+        <button class="secondary" data-action="shop" data-name="${n}" title="Add to the Home Assistant shopping list">Shopping list</button>
         <button class="secondary" data-action="toggle-add" data-name="${n}">${open ? "Close" : "Add"}</button></div>
       ${open ? `<div class="fi-addrow" data-name="${n}">
         <input type="number" min="1" value="1" placeholder="Quantity" data-f="quantity" />

@@ -11,6 +11,7 @@ import voluptuous as vol
 from homeassistant.components import frontend, panel_custom
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
@@ -27,11 +28,14 @@ from .const import (
     ATTR_QUANTITY,
     ATTR_REMAINING,
     ATTR_UNITS,
+    CONF_SHOP_ON_ADD,
+    CONF_SHOP_ON_EMPTY,
     DOMAIN,
     EVENT_UPDATED,
     LOCATION_FREEZER,
     LOCATIONS,
     SERVICE_ADD_ITEM,
+    SERVICE_ADD_TO_SHOPPING_LIST,
     SERVICE_CLEAR,
     SERVICE_REMOVE_ITEM,
     SERVICE_SET_QUANTITY,
@@ -45,7 +49,7 @@ PLATFORMS = ["sensor"]
 
 PANEL_URL_PATH = "freezer-inventory"
 PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
-PANEL_VERSION = "0.9.1"
+PANEL_VERSION = "0.10.0"
 PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
 LOCATION = vol.All(vol.Lower, vol.In(LOCATIONS))
@@ -95,6 +99,9 @@ USE_AMOUNT_SCHEMA = vol.Schema(
         vol.Optional(ATTR_LOCATION, default=LOCATION_FREEZER): LOCATION,
     }
 )
+SHOPPING_SCHEMA = vol.Schema(
+    {vol.Required(ATTR_NAME): cv.string, vol.Optional(ATTR_LOCATION): LOCATION}
+)
 CLEAR_SCHEMA = vol.Schema({vol.Optional(ATTR_LOCATION): LOCATION})
 
 
@@ -117,6 +124,8 @@ class FreezerInventory:
         self.hass = hass
         self.items: list[dict[str, Any]] = []
         self.revision = 0
+        self.shop_on_empty = False
+        self.shop_on_add = False
         self._store: Store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
 
     async def async_load(self) -> None:
@@ -134,6 +143,32 @@ class FreezerInventory:
     async def async_save(self) -> None:
         """Write pending changes immediately."""
         await self._store.async_save({ATTR_ITEMS: self.items})
+
+    async def _async_shop(self, service: str, name: str, strict: bool = False) -> None:
+        """Call the shopping list integration."""
+        try:
+            await self.hass.services.async_call(
+                "shopping_list", service, {"name": name}, blocking=True
+            )
+        except HomeAssistantError:
+            if strict:
+                raise
+
+    def _shop(self, service: str, name: str) -> None:
+        """Fire and forget a shopping list call if the integration is available."""
+        if self.hass.services.has_service("shopping_list", service):
+            self.hass.async_create_task(self._async_shop(service, name))
+
+    def _after_remove(self, item: dict[str, Any]) -> None:
+        """Add the item to the shopping list when no batch of it is left."""
+        if not self.shop_on_empty:
+            return
+        if not any(
+            i[ATTR_NAME].casefold() == item[ATTR_NAME].casefold()
+            and i[ATTR_LOCATION] == item[ATTR_LOCATION]
+            for i in self.items
+        ):
+            self._shop("add_item", item[ATTR_NAME])
 
     @callback
     def _changed(self) -> None:
@@ -199,6 +234,8 @@ class FreezerInventory:
         item[ATTR_QUANTITY] += quantity
         if item.get(ATTR_PACKAGE_SIZE) and item.get(ATTR_REMAINING) is None:
             item[ATTR_REMAINING] = item[ATTR_PACKAGE_SIZE]
+        if self.shop_on_add:
+            self._shop("complete_item", item[ATTR_NAME])
         self._changed()
 
     @callback
@@ -215,6 +252,7 @@ class FreezerInventory:
             return
         if quantity is None or quantity >= item[ATTR_QUANTITY]:
             self.items.remove(item)
+            self._after_remove(item)
         else:
             item[ATTR_QUANTITY] -= quantity
         self._changed()
@@ -233,6 +271,7 @@ class FreezerInventory:
             return
         if quantity <= 0:
             self.items.remove(item)
+            self._after_remove(item)
         else:
             item[ATTR_QUANTITY] = quantity
         self._changed()
@@ -252,6 +291,7 @@ class FreezerInventory:
         size = item[ATTR_PACKAGE_SIZE]
         if units <= 1e-9:
             self.items.remove(item)
+            self._after_remove(item)
         else:
             packages = math.ceil(units / size - 1e-9)
             item[ATTR_QUANTITY] = packages
@@ -291,6 +331,7 @@ class FreezerInventory:
                     remaining = size
             if item[ATTR_QUANTITY] <= 0:
                 self.items.remove(item)
+                self._after_remove(item)
             else:
                 item[ATTR_REMAINING] = remaining
         if changed:
@@ -309,6 +350,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Freezer Inventory from a config entry."""
     inventory = FreezerInventory(hass)
     await inventory.async_load()
+    conf = {**entry.data, **entry.options}
+    inventory.shop_on_empty = bool(conf.get(CONF_SHOP_ON_EMPTY))
+    inventory.shop_on_add = bool(conf.get(CONF_SHOP_ON_ADD))
     hass.data[DOMAIN] = inventory
 
     async def add_item(call: ServiceCall) -> None:
@@ -353,6 +397,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             call.data[ATTR_LOCATION],
         )
 
+    async def add_to_shopping_list(call: ServiceCall) -> None:
+        if not hass.services.has_service("shopping_list", "add_item"):
+            raise HomeAssistantError("The Shopping List integration is not set up")
+        await inventory._async_shop("add_item", call.data[ATTR_NAME], strict=True)
+
     async def clear(call: ServiceCall) -> None:
         inventory.async_clear(call.data.get(ATTR_LOCATION))
 
@@ -368,6 +417,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     hass.services.async_register(
         DOMAIN, SERVICE_USE_AMOUNT, use_amount, USE_AMOUNT_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_ADD_TO_SHOPPING_LIST, add_to_shopping_list, SHOPPING_SCHEMA
     )
     hass.services.async_register(DOMAIN, SERVICE_CLEAR, clear, CLEAR_SCHEMA)
 
@@ -412,6 +464,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         SERVICE_SET_QUANTITY,
         SERVICE_SET_UNITS,
         SERVICE_USE_AMOUNT,
+        SERVICE_ADD_TO_SHOPPING_LIST,
         SERVICE_CLEAR,
     ):
         hass.services.async_remove(DOMAIN, service)
