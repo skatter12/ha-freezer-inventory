@@ -342,7 +342,7 @@ class FreezerInventoryPanel extends HTMLElement {
       .map((l) => {
         const n = ((this._hass.states[ENTITIES[l]] || {}).attributes || {}).items || [];
         const t = this._temp(l);
-        return `<button data-loc="${l}" class="${l === this._loc ? "active" : ""}">${LABELS[l]} (${n.length})${t ? ` - ${this._esc(t.text)}` : ""}</button>`;
+        return `<button data-loc="${l}" class="${l === this._loc ? "active" : ""}">${LABELS[l]} (${n.length})${t ? `<br><small>${this._esc(t.text)}</small>` : ""}</button>`;
       })
       .join("");
     const cur = this._temp(this._loc);

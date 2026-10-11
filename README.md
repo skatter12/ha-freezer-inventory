@@ -2,7 +2,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/skatter12/ha-freezer-inventory)](https://github.com/skatter12/ha-freezer-inventory/releases/latest)
 
-**Current version: 0.9.0**
+**Current version: 0.9.1**
 
 A Home Assistant integration that keeps track of what you have in your freezer.
 
@@ -62,6 +62,7 @@ data:
 
 ## Changelog
 
+- **0.9.1** - Temperature shown on its own line in the tabs.
 - **0.9.0** - Optional freezer and fridge temperature entities in the setup and options, shown in the panel.
 - **0.8.0** - Freezer and Fridge tabs with identical features; a `location` option on all services and a new `sensor.fridge_items`. Existing items stay in the freezer.
 - **0.7.1** - Fixed README encoding so HACS shows it.
