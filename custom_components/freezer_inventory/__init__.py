@@ -59,7 +59,7 @@ PLATFORMS = ["sensor"]
 
 PANEL_URL_PATH = "freezer-inventory"
 PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
-PANEL_VERSION = "1.6.0"
+PANEL_VERSION = "1.6.1"
 PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
 LOCATION = vol.All(vol.Lower, vol.In(LOCATIONS))
@@ -207,6 +207,13 @@ class FreezerInventory:
         if self.hass.services.has_service("shopping_list", service):
             self.hass.async_create_task(self._async_shop(service, name))
 
+    @staticmethod
+    def _batch_units(i: dict[str, Any]) -> float:
+        remaining = i.get(ATTR_REMAINING)
+        if remaining is None:
+            remaining = i[ATTR_PACKAGE_SIZE]
+        return (i[ATTR_QUANTITY] - 1) * i[ATTR_PACKAGE_SIZE] + remaining
+
     def _stock(self, name: str, location: str, appliance: str | None) -> float:
         """Total units of an item across its batches."""
         total = 0.0
@@ -278,6 +285,26 @@ class FreezerInventory:
         if item is None:
             return
         item[ATTR_BEST_BEFORE] = best_before
+        twin = next(
+            (
+                i
+                for i in self._matches(item[ATTR_NAME], None, item[ATTR_LOCATION], item.get(ATTR_APPLIANCE))
+                if i is not item
+                and i.get(ATTR_BEST_BEFORE) == best_before
+                and i.get(ATTR_PACKAGE_SIZE) == item.get(ATTR_PACKAGE_SIZE)
+            ),
+            None,
+        )
+        if twin is not None:
+            size = item.get(ATTR_PACKAGE_SIZE)
+            if size:
+                units = self._batch_units(twin) + self._batch_units(item)
+                packages = math.ceil(units / size - 1e-9)
+                twin[ATTR_QUANTITY] = packages
+                twin[ATTR_REMAINING] = round(units - (packages - 1) * size, 6)
+            else:
+                twin[ATTR_QUANTITY] += item[ATTR_QUANTITY]
+            self.items.remove(item)
         self._changed()
 
     @callback

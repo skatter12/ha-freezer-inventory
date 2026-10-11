@@ -2,7 +2,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/skatter12/ha-freezer-inventory)](https://github.com/skatter12/ha-freezer-inventory/releases/latest)
 
-**Current version: 1.6.0**
+**Current version: 1.6.1**
 
 A Home Assistant integration that keeps track of what you have in your freezer.
 
@@ -79,6 +79,7 @@ data:
 
 ## Changelog
 
+- **1.6.1** - Changing a batch date to one that already exists merges the two batches (same package size).
 - **1.6.0** - Adding without a date creates/uses a separate "No date" batch; click a date (or "No date") to change it. New service `set_best_before`.
 - **1.5.0** - Date format moved from the panel to Configure - Settings (applies to everyone).
 - **1.4.0** - Automatic shopping list adding is now controlled only per item (global minimum setting removed).
