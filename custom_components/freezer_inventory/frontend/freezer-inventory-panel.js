@@ -161,8 +161,31 @@ class FreezerInventoryPanel extends HTMLElement {
     });
 
     this.querySelector("#list").addEventListener("click", (ev) => {
-      const btn = ev.target.closest("button[data-action]");
-      if (!btn) return;
+      const btn = ev.target.closest("[data-action]");
+      if (!btn || btn.tagName === "INPUT") return;
+      if (btn.dataset.action === "edit-date") {
+        this._editDate = btn.dataset.id;
+        this._lastItems = null;
+        this._renderList();
+        return;
+      }
+      if (btn.dataset.action === "cancel-date") {
+        this._editDate = null;
+        this._lastItems = null;
+        this._renderList();
+        return;
+      }
+      if (btn.dataset.action === "save-date") {
+        const value = btn.parentElement.querySelector("[data-f=newdate]").value;
+        this._editDate = null;
+        this._lastItems = null;
+        this._call("set_best_before", {
+          name: btn.dataset.name,
+          id: btn.dataset.id,
+          ...(value ? { best_before: value } : {}),
+        });
+        return;
+      }
       if (btn.dataset.action === "toggle-add") {
         const nm = btn.dataset.name;
         if (this._open.has(nm)) this._open.delete(nm);
@@ -344,13 +367,21 @@ class FreezerInventoryPanel extends HTMLElement {
     return (base && base.attributes.date_format) || "YYYY-MM-DD";
   }
 
-  _expiry(bestBefore) {
-    if (!bestBefore) return `<span class="fi-date">No date</span>`;
+  _expiry(item) {
+    const bestBefore = item.best_before;
+    const ref = `data-name="${this._esc(item.name)}" data-id="${this._esc(item.id)}"`;
+    if (this._editDate === item.id) {
+      return `<span class="fi-editdate"><input type="date" data-f="newdate" value="${this._esc(bestBefore || "")}" />
+        <button data-action="save-date" ${ref}>Save</button>
+        <button class="secondary" data-action="cancel-date">Cancel</button></span>`;
+    }
+    const tip = `title="Click to change the date" style="cursor:pointer"`;
+    if (!bestBefore) return `<span class="fi-date" data-action="edit-date" ${ref} ${tip}>No date</span>`;
     const days = Math.floor((new Date(bestBefore) - new Date().setHours(0, 0, 0, 0)) / 86400000);
     const f = this._esc(this._fmtDate(bestBefore));
-    if (days < 0) return `<span class="fi-date fi-d-expired">Expired ${f}</span>`;
-    if (days <= 30) return `<span class="fi-date fi-d-soon">Best before ${f} (${days}d)</span>`;
-    return `<span class="fi-date">Best before ${f}</span>`;
+    if (days < 0) return `<span class="fi-date fi-d-expired" data-action="edit-date" ${ref} ${tip}>Expired ${f}</span>`;
+    if (days <= 30) return `<span class="fi-date fi-d-soon" data-action="edit-date" ${ref} ${tip}>Best before ${f} (${days}d)</span>`;
+    return `<span class="fi-date" data-action="edit-date" ${ref} ${tip}>Best before ${f}</span>`;
   }
 
   _totalUnits(i) {
@@ -459,7 +490,7 @@ class FreezerInventoryPanel extends HTMLElement {
         <div class="fi-item">
           <div class="fi-info">
             <div class="fi-name">Batch</div>
-            <div class="fi-meta">${this._expiry(i.best_before)}</div>
+            <div class="fi-meta">${this._expiry(i)}</div>
             <div class="fi-meta">Added ${this._esc(this._fmtDate(i.date_added))}</div>
             ${
               i.package_size

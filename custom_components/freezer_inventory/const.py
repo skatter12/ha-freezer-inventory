@@ -11,6 +11,7 @@ SERVICE_SET_QUANTITY = "set_quantity"
 SERVICE_SET_UNITS = "set_units"
 SERVICE_USE_AMOUNT = "use_amount"
 SERVICE_CLEAR = "clear"
+SERVICE_SET_BEST_BEFORE = "set_best_before"
 SERVICE_SET_MIN_STOCK = "set_min_stock"
 SERVICE_ADD_TO_SHOPPING_LIST = "add_to_shopping_list"
 

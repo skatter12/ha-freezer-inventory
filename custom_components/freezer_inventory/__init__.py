@@ -40,6 +40,7 @@ from .const import (
     SERVICE_ADD_ITEM,
     SERVICE_ADD_TO_SHOPPING_LIST,
     SERVICE_SET_MIN_STOCK,
+    SERVICE_SET_BEST_BEFORE,
     ATTR_MIN_STOCK,
     ATTR_MIN_UNIT,
     MIN_UNIT_PACKAGES,
@@ -58,7 +59,7 @@ PLATFORMS = ["sensor"]
 
 PANEL_URL_PATH = "freezer-inventory"
 PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
-PANEL_VERSION = "1.5.0"
+PANEL_VERSION = "1.6.0"
 PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
 LOCATION = vol.All(vol.Lower, vol.In(LOCATIONS))
@@ -127,6 +128,15 @@ MIN_STOCK_SCHEMA = vol.Schema(
         vol.Optional(ATTR_MIN_UNIT, default=MIN_UNIT_PACKAGES): vol.In(
             [MIN_UNIT_PACKAGES, MIN_UNIT_UNITS, MIN_UNIT_OFF]
         ),
+        vol.Optional(ATTR_LOCATION, default=LOCATION_FREEZER): LOCATION,
+        vol.Optional(ATTR_APPLIANCE): cv.string,
+    }
+)
+BEST_BEFORE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_ID): cv.string,
+        vol.Required(ATTR_NAME): cv.string,
+        vol.Optional(ATTR_BEST_BEFORE): cv.date,
         vol.Optional(ATTR_LOCATION, default=LOCATION_FREEZER): LOCATION,
         vol.Optional(ATTR_APPLIANCE): cv.string,
     }
@@ -255,6 +265,22 @@ class FreezerInventory:
             self._shop("add_item", name)
 
     @callback
+    def async_set_best_before(
+        self,
+        name: str,
+        best_before: str | None,
+        item_id: str | None = None,
+        location: str = LOCATION_FREEZER,
+        appliance: str | None = None,
+    ) -> None:
+        """Set or clear the best-before date of a batch."""
+        item = self._find(name, item_id, location, appliance)
+        if item is None:
+            return
+        item[ATTR_BEST_BEFORE] = best_before
+        self._changed()
+
+    @callback
     def async_set_min_stock(
         self,
         name: str,
@@ -326,7 +352,7 @@ class FreezerInventory:
         if best_before:
             candidates = [i for i in candidates if i.get(ATTR_BEST_BEFORE) == best_before]
         else:
-            candidates.sort(key=lambda i: i.get(ATTR_BEST_BEFORE) is not None)
+            candidates = [i for i in candidates if i.get(ATTR_BEST_BEFORE) is None]
         item = candidates[0] if candidates else None
 
         if item is None:
@@ -578,6 +604,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             raise HomeAssistantError("The Shopping List integration is not set up")
         await inventory._async_shop("add_item", call.data[ATTR_NAME], strict=True)
 
+    async def set_best_before(call: ServiceCall) -> None:
+        location, appliance = _target(call)
+        best_before = call.data.get(ATTR_BEST_BEFORE)
+        inventory.async_set_best_before(
+            call.data[ATTR_NAME],
+            best_before.isoformat() if best_before else None,
+            call.data.get(ATTR_ID),
+            location,
+            appliance,
+        )
+
     async def set_min_stock(call: ServiceCall) -> None:
         location, appliance = _target(call)
         inventory.async_set_min_stock(
@@ -607,6 +644,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     hass.services.async_register(
         DOMAIN, SERVICE_ADD_TO_SHOPPING_LIST, add_to_shopping_list, SHOPPING_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_SET_BEST_BEFORE, set_best_before, BEST_BEFORE_SCHEMA
     )
     hass.services.async_register(
         DOMAIN, SERVICE_SET_MIN_STOCK, set_min_stock, MIN_STOCK_SCHEMA
@@ -656,6 +696,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         SERVICE_USE_AMOUNT,
         SERVICE_ADD_TO_SHOPPING_LIST,
         SERVICE_SET_MIN_STOCK,
+        SERVICE_SET_BEST_BEFORE,
         SERVICE_CLEAR,
     ):
         hass.services.async_remove(DOMAIN, service)

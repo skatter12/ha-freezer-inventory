@@ -278,3 +278,38 @@ set_min_stock:
       description: Name of an extra freezer or fridge added under Configure. Overrides location.
       selector:
         text:
+
+set_best_before:
+  name: Set best before
+  description: Set or clear the best-before date of a batch.
+  fields:
+    name:
+      name: Name
+      description: Name of the item.
+      required: true
+      selector:
+        text:
+    id:
+      name: Batch id
+      description: Id of the batch (see the sensor attributes). Without it the oldest batch is used.
+      selector:
+        text:
+    best_before:
+      name: Best before
+      description: New date. Leave empty to clear the date.
+      selector:
+        date:
+    location:
+      name: Location
+      description: Freezer or fridge.
+      default: freezer
+      selector:
+        select:
+          options:
+            - freezer
+            - fridge
+    appliance:
+      name: Freezer or fridge name
+      description: Name of an extra freezer or fridge added under Configure. Overrides location.
+      selector:
+        text:
