@@ -57,7 +57,7 @@ PLATFORMS = ["sensor"]
 
 PANEL_URL_PATH = "freezer-inventory"
 PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
-PANEL_VERSION = "1.3.0"
+PANEL_VERSION = "1.3.1"
 PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
 LOCATION = vol.All(vol.Lower, vol.In(LOCATIONS))
@@ -433,11 +433,15 @@ class FreezerInventory:
     ) -> None:
         """Use part of the contents; opens the next package when one is used up.
 
-        Without an id, the oldest best-before batch is used first.
+        The given batch (if any) is used first, then the oldest best-before batches;
+        leftover amounts continue into the next batch.
         """
         changed = False
         before = self._level(name, location, appliance)
-        for item in list(self._matches(name, item_id, location, appliance)):
+        batches = list(self._matches(name, None, location, appliance))
+        first = [b for b in batches if item_id and b[ATTR_ID] == item_id]
+        batches = first + [b for b in batches if b not in first]
+        for item in batches:
             if amount <= 1e-9:
                 break
             size = item.get(ATTR_PACKAGE_SIZE)
