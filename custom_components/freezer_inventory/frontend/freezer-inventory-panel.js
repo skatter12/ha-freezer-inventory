@@ -93,7 +93,7 @@ class FreezerInventoryPanel extends HTMLElement {
           <form id="add">
             <label style="display:none">Place<select name="place" id="place"></select></label>
             <label>Name<input name="name" required list="fi-names" autocomplete="off" placeholder="e.g. Minced beef" /></label>
-            <label>Packages<input name="quantity" type="number" min="1" value="1" required /></label>
+            <label>Units<input name="quantity" type="number" min="1" value="1" required /></label>
             <label>Per package<input name="package_size" type="number" min="0" step="any" placeholder="e.g. 4" /></label>
             <label>Best before<input name="best_before" type="date" /></label>
             <button type="submit">Add</button>
@@ -333,7 +333,7 @@ class FreezerInventoryPanel extends HTMLElement {
     const existing = this._items().filter((i) => i.name.toLowerCase() === name);
     this.querySelector("#hint").textContent = existing.length
       ? `Already in the freezer: ${existing
-          .map((i) => `${i.quantity} pkg${i.best_before ? ` (best before ${this._fmtDate(i.best_before)})` : ""}`)
+          .map((i) => `${i.quantity} units${i.best_before ? ` (best before ${this._fmtDate(i.best_before)})` : ""}`)
           .join(", ")}. Same date (or no date) adds to that batch; a new date creates a new batch.`
       : "";
   }
@@ -409,7 +409,7 @@ class FreezerInventoryPanel extends HTMLElement {
     const minUnit = lim && lim.min_unit === "units" ? "units" : "packages";
     return `<div class="fi-group">
       <div class="fi-gtitle"><b>${n}</b>
-        <span class="fi-meta">Total: ${pkgs} pkg${withSize.length ? ` / ${Math.round(units * 1e6) / 1e6} units` : ""}${dates > 1 ? ` - ${dates} dates` : ""}</span>
+        <span class="fi-meta">${pkgs} units${withSize.length ? ` / ${Math.round(units * 1e6) / 1e6} total` : ""}${dates > 1 ? ` - ${dates} dates` : ""}</span>
         <button class="secondary" data-action="shop" data-name="${n}" title="Add to the Home Assistant shopping list">Shopping list</button>
         <button class="secondary" data-action="toggle-min" data-name="${n}" title="Minimum stock for the shopping list">Min stock${minVal !== "" ? `: ${minVal}` : ""}</button>
         <button class="secondary" data-action="toggle-add" data-name="${n}">${open ? "Close" : "Add"}</button></div>
@@ -417,11 +417,11 @@ class FreezerInventoryPanel extends HTMLElement {
         <small>Add to shopping list at or below (empty = off):</small>
         <input type="number" min="0" step="any" value="${minVal}" placeholder="off" data-f="min" style="width:80px" />
         <select data-f="minunit">
-          <option value="packages"${minUnit === "packages" ? " selected" : ""}>Packages</option>
-          <option value="units"${minUnit === "units" ? " selected" : ""}>Units (total)</option>
+          <option value="packages"${minUnit === "packages" ? " selected" : ""}>Units</option>
+          <option value="units"${minUnit === "units" ? " selected" : ""}>Total (units x per package)</option>
         </select></div>` : ""}
       ${open ? `<div class="fi-addrow" data-name="${n}">
-        <input type="number" min="1" value="1" placeholder="Packages" data-f="quantity" />
+        <input type="number" min="1" value="1" placeholder="Units" data-f="quantity" />
         <input type="number" min="0" step="any" placeholder="Per package" data-f="package_size" />
         <input type="date" data-f="best_before" />
         <button data-action="add-batch" data-name="${n}">Add</button></div>` : ""}
@@ -501,13 +501,13 @@ class FreezerInventoryPanel extends HTMLElement {
             }
           </div>
           <button class="secondary" data-action="dec" ${ref} data-qty="${i.quantity}">-</button>
-          <label class="fi-field">Packages
+          <label class="fi-field">Units
             <input class="fi-qty" type="number" min="0" value="${i.quantity}" data-action="set" ${ref} />
           </label>
           <button class="secondary" data-action="inc" ${ref} data-qty="${i.quantity}">+</button>
           ${
             i.packs
-              ? `<label class="fi-field">Units
+              ? `<label class="fi-field">Total
                    <input class="fi-qty" type="number" min="0" step="any" value="${this._totalUnits(i)}" data-action="set-units" ${ref} />
                  </label>`
               : ""

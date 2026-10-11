@@ -2,7 +2,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/skatter12/ha-freezer-inventory)](https://github.com/skatter12/ha-freezer-inventory/releases/latest)
 
-**Current version: 1.7.0**
+**Current version: 1.7.1**
 
 A Home Assistant integration that keeps track of what you have in your freezer.
 
@@ -23,11 +23,11 @@ After setup a **Freezer** entry appears in the sidebar. The panel needs Home Ass
 
 Each item has:
 
-- **Quantity** - the number of packages.
+- **Units** - how many you have (packages, cartons, trays...).
 - **Per package** (optional) - how many units are in each package.
 - **Best before** (optional) - a date.
 
-With 2 packages of 4, using 2 units gives `1 -- 4 + 1 -- 2 = 6`. The panel shows this breakdown and lets you edit both **Packages** and total **Units** (setting 5 units gives 2 packages: 4 + 1). Use the **Use** field to take units out of the open package; when it is empty the next package is opened.
+With 2 packages of 4, using 2 units gives `1 -- 4 + 1 -- 2 = 6`. The panel shows this breakdown and lets you edit both **Units** and **Total** (setting 5 units gives 2 packages: 4 + 1). Use the **Use** field to take units out of the open package; when it is empty the next package is opened.
 
 ### Adding to an existing item
 
@@ -51,7 +51,7 @@ Works with the built-in Home Assistant **Shopping List** integration.
 
 - Each item has a **Shopping list** button that adds it to the list.
 - Under **Configure** you can enable: mark an item as bought on the shopping list when you add stock.
-- Each item has a **Min stock** button. Set a number and choose **Quantity** (packages) or **Units** (pieces per package); when stock falls to that level the item is added to the shopping list. Leave it empty for no automatic adding. Service `freezer_inventory.set_min_stock`.
+- Each item has a **Min stock** button. Set a number and choose **Units** (count) or **Total** (units x per package); when stock falls to that level the item is added to the shopping list. Leave it empty for no automatic adding. Service `freezer_inventory.set_min_stock`.
 - Service `freezer_inventory.add_to_shopping_list` (`name`) for automations.
 
 ## Automations and services
@@ -79,6 +79,7 @@ data:
 
 ## Changelog
 
+- **1.7.1** - Panel labels: "Packages" is now "Units", and the old total "Units" is now "Total".
 - **1.7.0** - Packages of different sizes with the same best-before date share one batch (e.g. 1 x 10 + 1 x 6 = 16). "Quantity" renamed to "Packages". Existing data is migrated automatically.
 - **1.6.1** - Changing a batch date to one that already exists merges the two batches (same package size).
 - **1.6.0** - Adding without a date creates/uses a separate "No date" batch; click a date (or "No date") to change it. New service `set_best_before`.
