@@ -2,7 +2,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/skatter12/ha-freezer-inventory)](https://github.com/skatter12/ha-freezer-inventory/releases/latest)
 
-**Current version: 1.0.0**
+**Current version: 1.1.0**
 
 A Home Assistant integration that keeps track of what you have in your freezer.
 
@@ -32,6 +32,14 @@ With 2 packages of 4, using 2 units gives `1 -- 4 + 1 -- 2 = 6`. The panel shows
 ### Adding to an existing item
 
 Adding an item that already exists adds to it. If you give a **different best-before date**, it is stored as a separate batch under the same name, so each batch keeps its own date. Adding with the same date adds to the matching batch; adding without a date prefers a batch that has no date, otherwise the oldest one. Items expiring within 30 days are highlighted and expired ones are marked in red.
+
+## Multiple freezers and fridges
+
+Under **Settings - Devices & Services - Freezer Inventory - Configure** you can add extra freezers and fridges with a name (and an optional temperature entity), rename them, and remove them again. Each one gets its own tab and its own sensor (`sensor.freezer_inventory_<id>`).
+
+When adding an item, pick the freezer or fridge in the **Place** field (shown once you have more than the defaults). Leave it as is to use the current tab. Removing a freezer or fridge moves its items back to the default Freezer or Fridge.
+
+Services accept an optional `appliance` (the name of an extra freezer or fridge), which overrides `location`.
 
 ## Temperature
 
@@ -70,6 +78,7 @@ data:
 
 ## Changelog
 
+- **1.1.0** - Add several named freezers and fridges (add, rename, remove under Configure), choose one when adding items.
 - **1.0.0** - First stable release.
 - **0.10.1** - Pressing - on the last package asks whether to remove the batch.
 - **0.10.0** - Shopping List integration: button per item, optional auto-add when an item runs out and auto-complete when stock is added.

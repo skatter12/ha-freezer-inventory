@@ -11,6 +11,11 @@ add_item:
           options:
             - freezer
             - fridge
+    appliance:
+      name: Freezer or fridge name
+      description: Name of an extra freezer or fridge added under Configure. Overrides location.
+      selector:
+        text:
     name:
       name: Name
       description: Name of the item.
@@ -55,6 +60,11 @@ remove_item:
           options:
             - freezer
             - fridge
+    appliance:
+      name: Freezer or fridge name
+      description: Name of an extra freezer or fridge added under Configure. Overrides location.
+      selector:
+        text:
     name:
       name: Name
       description: Name of the item.
@@ -88,6 +98,11 @@ set_quantity:
           options:
             - freezer
             - fridge
+    appliance:
+      name: Freezer or fridge name
+      description: Name of an extra freezer or fridge added under Configure. Overrides location.
+      selector:
+        text:
     name:
       name: Name
       description: Name of the item.
@@ -122,6 +137,11 @@ set_units:
           options:
             - freezer
             - fridge
+    appliance:
+      name: Freezer or fridge name
+      description: Name of an extra freezer or fridge added under Configure. Overrides location.
+      selector:
+        text:
     name:
       name: Name
       description: Name of the item.
@@ -158,6 +178,11 @@ use_amount:
           options:
             - freezer
             - fridge
+    appliance:
+      name: Freezer or fridge name
+      description: Name of an extra freezer or fridge added under Configure. Overrides location.
+      selector:
+        text:
     name:
       name: Name
       description: Name of the item (must have a package size).
@@ -194,6 +219,11 @@ clear:
           options:
             - freezer
             - fridge
+    appliance:
+      name: Freezer or fridge name
+      description: Name of an extra freezer or fridge added under Configure. Overrides location.
+      selector:
+        text:
 add_to_shopping_list:
   name: Add to shopping list
   description: Add an item to the Home Assistant shopping list (requires the Shopping List integration).

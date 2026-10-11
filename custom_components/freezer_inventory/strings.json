@@ -3,7 +3,7 @@
   "config": {
     "step": {
       "user": {
-        "description": "Optionally pick the temperature entities for your freezer and fridge. You can change them later under Configure.",
+        "description": "Optionally pick the temperature entities for your freezer and fridge. You can add more freezers and fridges later under Configure.",
         "data": {
           "freezer_temperature_entity": "Freezer temperature entity",
           "fridge_temperature_entity": "Fridge temperature entity",
@@ -19,14 +19,51 @@
   "options": {
     "step": {
       "init": {
-        "description": "Pick the temperature entities for your freezer and fridge. Clear a field to remove it.",
+        "menu_options": {
+          "settings": "Settings (temperatures and shopping list)",
+          "add_unit": "Add another freezer or fridge",
+          "edit_pick": "Rename a freezer or fridge",
+          "remove_unit": "Remove a freezer or fridge"
+        }
+      },
+      "settings": {
+        "description": "Settings for the default freezer and fridge. Clear a field to remove it.",
         "data": {
           "freezer_temperature_entity": "Freezer temperature entity",
           "fridge_temperature_entity": "Fridge temperature entity",
           "shopping_list_on_empty": "Add to the shopping list when an item runs out",
           "shopping_list_on_add": "Mark as bought on the shopping list when stock is added"
         }
+      },
+      "add_unit": {
+        "description": "Add another freezer or fridge. Pick it by name when adding items.",
+        "data": {
+          "kind": "Type",
+          "name": "Name",
+          "temperature_entity": "Temperature entity (optional)"
+        }
+      },
+      "edit_pick": {
+        "data": {
+          "unit": "Freezer or fridge"
+        }
+      },
+      "edit_unit": {
+        "data": {
+          "name": "Name",
+          "temperature_entity": "Temperature entity (optional)"
+        }
+      },
+      "remove_unit": {
+        "description": "The items in the removed freezer or fridge are moved to the default Freezer or Fridge.",
+        "data": {
+          "unit": "Freezer or fridge"
+        }
       }
+    },
+    "error": {
+      "name_exists": "That name is already in use.",
+      "name_required": "Enter a name."
     }
   }
 }
