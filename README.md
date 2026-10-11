@@ -2,7 +2,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/skatter12/ha-freezer-inventory)](https://github.com/skatter12/ha-freezer-inventory/releases/latest)
 
-**Current version: 1.2.0**
+**Current version: 1.3.0**
 
 A Home Assistant integration that keeps track of what you have in your freezer.
 
@@ -51,6 +51,7 @@ Works with the built-in Home Assistant **Shopping List** integration.
 
 - Each item has a **Shopping list** button that adds it to the list.
 - Under **Configure** you can enable: automatically add an item to the shopping list when its stock falls to a **minimum stock** you set (0 = when it runs out; counted in units, or packages if no package size), and mark it as bought on the shopping list when you add stock.
+- Each item has its own **Min stock** field (empty = off). Choose whether it is counted in **Quantity** (packages) or **Units** (pieces per package). It overrides the default in Configure. Service `freezer_inventory.set_min_stock`.
 - Service `freezer_inventory.add_to_shopping_list` (`name`) for automations.
 
 ## Automations and services
@@ -78,6 +79,7 @@ data:
 
 ## Changelog
 
+- **1.3.0** - Minimum stock per item, counted in quantity or units.
 - **1.2.0** - Fixes a missing constant in 1.1.0 that stopped the integration from loading. Automatic shopping list can be switched on/off, with a minimum stock level that triggers adding the item.
 - **1.1.0** - Add several named freezers and fridges (add, rename, remove under Configure), choose one when adding items.
 - **1.0.0** - First stable release.

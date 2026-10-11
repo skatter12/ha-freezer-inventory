@@ -234,3 +234,46 @@ add_to_shopping_list:
       required: true
       selector:
         text:
+
+set_min_stock:
+  name: Set minimum stock
+  description: Set the minimum stock of an item. When stock falls to this level the item is added to the shopping list. Leave the minimum empty to clear it.
+  fields:
+    name:
+      name: Name
+      description: Name of the item.
+      required: true
+      example: Minced beef
+      selector:
+        text:
+    min_stock:
+      name: Minimum stock
+      description: Minimum stock level. Leave empty to clear.
+      selector:
+        number:
+          min: 0
+          step: any
+          mode: box
+    min_unit:
+      name: Counted in
+      description: Count the minimum in packages or in total units (pieces per package).
+      default: packages
+      selector:
+        select:
+          options:
+            - packages
+            - units
+    location:
+      name: Location
+      description: Freezer or fridge.
+      default: freezer
+      selector:
+        select:
+          options:
+            - freezer
+            - fridge
+    appliance:
+      name: Freezer or fridge name
+      description: Name of an extra freezer or fridge added under Configure. Overrides location.
+      selector:
+        text:

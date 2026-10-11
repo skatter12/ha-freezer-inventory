@@ -219,6 +219,14 @@ class FreezerInventoryPanel extends HTMLElement {
     });
 
     this.querySelector("#list").addEventListener("change", (ev) => {
+      const minRow = ev.target.closest(".fi-minrow");
+      if (minRow) {
+        const raw = minRow.querySelector("[data-f=min]").value;
+        const data = { name: minRow.dataset.name, min_unit: minRow.querySelector("[data-f=minunit]").value };
+        if (raw !== "" && parseFloat(raw) >= 0) data.min_stock = parseFloat(raw);
+        this._call("set_min_stock", data);
+        return;
+      }
       const input = ev.target.closest("input[data-action]");
       if (!input) return;
       const target = { name: input.dataset.name, id: input.dataset.id };
@@ -366,11 +374,21 @@ class FreezerInventoryPanel extends HTMLElement {
     const dates = new Set(batches.map((b) => b.best_before || "")).size;
     const n = this._esc(name);
     const open = this._open.has(name);
+    const lim = batches.find((b) => b.min_stock !== null && b.min_stock !== undefined);
+    const minVal = lim ? lim.min_stock : "";
+    const minUnit = lim ? lim.min_unit : "packages";
     return `<div class="fi-group">
       <div class="fi-gtitle"><b>${n}</b>
         <span class="fi-meta">Total: ${pkgs} pkg${withSize.length ? ` / ${Math.round(units * 1e6) / 1e6} units` : ""}${dates > 1 ? ` - ${dates} dates` : ""}</span>
         <button class="secondary" data-action="shop" data-name="${n}" title="Add to the Home Assistant shopping list">Shopping list</button>
         <button class="secondary" data-action="toggle-add" data-name="${n}">${open ? "Close" : "Add"}</button></div>
+      <div class="fi-minrow" data-name="${n}" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0">
+        <small>Min stock (add to shopping list):</small>
+        <input type="number" min="0" step="any" value="${minVal}" placeholder="off" data-f="min" style="width:80px" />
+        <select data-f="minunit">
+          <option value="packages"${minUnit === "packages" ? " selected" : ""}>Quantity</option>
+          <option value="units"${minUnit === "units" ? " selected" : ""}>Units (per quantity)</option>
+        </select></div>
       ${open ? `<div class="fi-addrow" data-name="${n}">
         <input type="number" min="1" value="1" placeholder="Quantity" data-f="quantity" />
         <input type="number" min="0" step="any" placeholder="Per package" data-f="package_size" />

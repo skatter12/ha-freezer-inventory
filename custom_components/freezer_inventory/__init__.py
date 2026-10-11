@@ -39,6 +39,11 @@ from .const import (
     LOCATIONS,
     SERVICE_ADD_ITEM,
     SERVICE_ADD_TO_SHOPPING_LIST,
+    SERVICE_SET_MIN_STOCK,
+    ATTR_MIN_STOCK,
+    ATTR_MIN_UNIT,
+    MIN_UNIT_PACKAGES,
+    MIN_UNIT_UNITS,
     SERVICE_CLEAR,
     SERVICE_REMOVE_ITEM,
     SERVICE_SET_QUANTITY,
@@ -52,7 +57,7 @@ PLATFORMS = ["sensor"]
 
 PANEL_URL_PATH = "freezer-inventory"
 PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
-PANEL_VERSION = "1.2.0"
+PANEL_VERSION = "1.3.0"
 PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
 LOCATION = vol.All(vol.Lower, vol.In(LOCATIONS))
@@ -114,6 +119,17 @@ SHOPPING_SCHEMA = vol.Schema(
         vol.Optional(ATTR_APPLIANCE): cv.string,
     }
 )
+MIN_STOCK_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_NAME): cv.string,
+        vol.Optional(ATTR_MIN_STOCK): NON_NEGATIVE_FLOAT,
+        vol.Optional(ATTR_MIN_UNIT, default=MIN_UNIT_PACKAGES): vol.In(
+            [MIN_UNIT_PACKAGES, MIN_UNIT_UNITS]
+        ),
+        vol.Optional(ATTR_LOCATION, default=LOCATION_FREEZER): LOCATION,
+        vol.Optional(ATTR_APPLIANCE): cv.string,
+    }
+)
 CLEAR_SCHEMA = vol.Schema(
     {vol.Optional(ATTR_LOCATION): LOCATION, vol.Optional(ATTR_APPLIANCE): cv.string}
 )
@@ -156,6 +172,8 @@ class FreezerInventory:
             item.setdefault(ATTR_BEST_BEFORE, None)
             item.setdefault(ATTR_LOCATION, LOCATION_FREEZER)
             item.setdefault(ATTR_APPLIANCE, None)
+            item.setdefault(ATTR_MIN_STOCK, None)
+            item.setdefault(ATTR_MIN_UNIT, MIN_UNIT_PACKAGES)
             if item[ATTR_APPLIANCE] not in known:
                 item[ATTR_APPLIANCE] = None
             item.pop("unit", None)
@@ -193,15 +211,63 @@ class FreezerInventory:
                 total += i[ATTR_QUANTITY]
         return total
 
+    def _packages(self, name: str, location: str, appliance: str | None) -> float:
+        return float(
+            sum(i[ATTR_QUANTITY] for i in self._matches(name, None, location, appliance))
+        )
+
+    def _limit(
+        self, name: str, location: str, appliance: str | None
+    ) -> tuple[float, str] | None:
+        """Return (minimum, unit) for an item: its own setting, else the default."""
+        for i in self._matches(name, None, location, appliance):
+            if i.get(ATTR_MIN_STOCK) is not None:
+                return i[ATTR_MIN_STOCK], i.get(ATTR_MIN_UNIT, MIN_UNIT_PACKAGES)
+        if self.shop_on_empty:
+            return self.shop_min, MIN_UNIT_UNITS
+        return None
+
+    def _level(
+        self, name: str, location: str, appliance: str | None
+    ) -> tuple[float, tuple[float, str] | None]:
+        """Current stock level and the limit that applies (captured before changes)."""
+        limit = self._limit(name, location, appliance)
+        if limit and limit[1] == MIN_UNIT_PACKAGES:
+            return self._packages(name, location, appliance), limit
+        return self._stock(name, location, appliance), limit
+
     def _check_stock(
-        self, name: str, location: str, appliance: str | None, before: float
+        self,
+        name: str,
+        location: str,
+        appliance: str | None,
+        before: tuple[float, tuple[float, str] | None],
     ) -> None:
         """Add to the shopping list when stock drops to the minimum or below."""
-        if not self.shop_on_empty:
+        level, limit = before
+        if limit is None:
             return
-        after = self._stock(name, location, appliance)
-        if before > self.shop_min and after <= self.shop_min + 1e-9:
+        if limit[1] == MIN_UNIT_PACKAGES:
+            after = self._packages(name, location, appliance)
+        else:
+            after = self._stock(name, location, appliance)
+        if level > limit[0] and after <= limit[0] + 1e-9:
             self._shop("add_item", name)
+
+    @callback
+    def async_set_min_stock(
+        self,
+        name: str,
+        min_stock: float | None,
+        min_unit: str = MIN_UNIT_PACKAGES,
+        location: str = LOCATION_FREEZER,
+        appliance: str | None = None,
+    ) -> None:
+        """Set (or clear with None) the minimum stock of an item."""
+        for item in self._matches(name, None, location, appliance):
+            item[ATTR_MIN_STOCK] = min_stock
+            item[ATTR_MIN_UNIT] = min_unit
+        self._changed()
 
     @callback
     def _changed(self) -> None:
@@ -274,7 +340,14 @@ class FreezerInventory:
                 ATTR_BEST_BEFORE: best_before,
                 ATTR_LOCATION: location,
                 ATTR_APPLIANCE: appliance,
+                ATTR_MIN_STOCK: None,
+                ATTR_MIN_UNIT: MIN_UNIT_PACKAGES,
             }
+            for other in self._matches(name, None, location, appliance):
+                if other.get(ATTR_MIN_STOCK) is not None:
+                    item[ATTR_MIN_STOCK] = other[ATTR_MIN_STOCK]
+                    item[ATTR_MIN_UNIT] = other.get(ATTR_MIN_UNIT, MIN_UNIT_PACKAGES)
+                    break
             self.items.append(item)
         item[ATTR_QUANTITY] += quantity
         if item.get(ATTR_PACKAGE_SIZE) and item.get(ATTR_REMAINING) is None:
@@ -296,7 +369,7 @@ class FreezerInventory:
         item = self._find(name, item_id, location, appliance)
         if item is None:
             return
-        before = self._stock(name, location, appliance)
+        before = self._level(name, location, appliance)
         if quantity is None or quantity >= item[ATTR_QUANTITY]:
             self.items.remove(item)
         else:
@@ -317,7 +390,7 @@ class FreezerInventory:
         item = self._find(name, item_id, location, appliance)
         if item is None:
             return
-        before = self._stock(name, location, appliance)
+        before = self._level(name, location, appliance)
         if quantity <= 0:
             self.items.remove(item)
         else:
@@ -338,7 +411,7 @@ class FreezerInventory:
         item = self._find(name, item_id, location, appliance)
         if item is None or not item.get(ATTR_PACKAGE_SIZE):
             return
-        before = self._stock(name, location, appliance)
+        before = self._level(name, location, appliance)
         size = item[ATTR_PACKAGE_SIZE]
         if units <= 1e-9:
             self.items.remove(item)
@@ -363,7 +436,7 @@ class FreezerInventory:
         Without an id, the oldest best-before batch is used first.
         """
         changed = False
-        before = self._stock(name, location, appliance)
+        before = self._level(name, location, appliance)
         for item in list(self._matches(name, item_id, location, appliance)):
             if amount <= 1e-9:
                 break
@@ -499,6 +572,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             raise HomeAssistantError("The Shopping List integration is not set up")
         await inventory._async_shop("add_item", call.data[ATTR_NAME], strict=True)
 
+    async def set_min_stock(call: ServiceCall) -> None:
+        location, appliance = _target(call)
+        inventory.async_set_min_stock(
+            call.data[ATTR_NAME],
+            call.data.get(ATTR_MIN_STOCK),
+            call.data[ATTR_MIN_UNIT],
+            location,
+            appliance,
+        )
+
     async def clear(call: ServiceCall) -> None:
         location, appliance = inventory.resolve(call.data)
         inventory.async_clear(location, appliance)
@@ -518,6 +601,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     hass.services.async_register(
         DOMAIN, SERVICE_ADD_TO_SHOPPING_LIST, add_to_shopping_list, SHOPPING_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_SET_MIN_STOCK, set_min_stock, MIN_STOCK_SCHEMA
     )
     hass.services.async_register(DOMAIN, SERVICE_CLEAR, clear, CLEAR_SCHEMA)
 
@@ -563,6 +649,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         SERVICE_SET_UNITS,
         SERVICE_USE_AMOUNT,
         SERVICE_ADD_TO_SHOPPING_LIST,
+        SERVICE_SET_MIN_STOCK,
         SERVICE_CLEAR,
     ):
         hass.services.async_remove(DOMAIN, service)
