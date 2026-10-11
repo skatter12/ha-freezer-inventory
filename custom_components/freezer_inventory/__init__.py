@@ -28,6 +28,7 @@ from .const import (
     ATTR_PACKAGE_SIZE,
     ATTR_QUANTITY,
     ATTR_REMAINING,
+    ATTR_PACKS,
     ATTR_UNITS,
     CONF_APPLIANCES,
     CONF_DATE_FORMAT,
@@ -59,7 +60,7 @@ PLATFORMS = ["sensor"]
 
 PANEL_URL_PATH = "freezer-inventory"
 PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
-PANEL_VERSION = "1.6.1"
+PANEL_VERSION = "1.7.0"
 PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
 LOCATION = vol.All(vol.Lower, vol.In(LOCATIONS))
@@ -179,6 +180,14 @@ class FreezerInventory:
             item.setdefault(ATTR_ID, uuid.uuid4().hex[:8])
             item.setdefault(ATTR_PACKAGE_SIZE, None)
             item.setdefault(ATTR_REMAINING, None)
+            if ATTR_PACKS not in item:
+                size = item.get(ATTR_PACKAGE_SIZE)
+                if size:
+                    first = item.get(ATTR_REMAINING)
+                    first = size if first is None else first
+                    item[ATTR_PACKS] = [first] + [size] * max(item[ATTR_QUANTITY] - 1, 0)
+                else:
+                    item[ATTR_PACKS] = None
             item.setdefault(ATTR_BEST_BEFORE, None)
             item.setdefault(ATTR_LOCATION, LOCATION_FREEZER)
             item.setdefault(ATTR_APPLIANCE, None)
@@ -209,24 +218,36 @@ class FreezerInventory:
 
     @staticmethod
     def _batch_units(i: dict[str, Any]) -> float:
-        remaining = i.get(ATTR_REMAINING)
-        if remaining is None:
-            remaining = i[ATTR_PACKAGE_SIZE]
-        return (i[ATTR_QUANTITY] - 1) * i[ATTR_PACKAGE_SIZE] + remaining
+        packs = i.get(ATTR_PACKS)
+        return round(sum(packs), 6) if packs else float(i[ATTR_QUANTITY])
+
+    @staticmethod
+    def _sync(item: dict[str, Any]) -> None:
+        """Keep the derived quantity/remaining fields in step with the packs."""
+        packs = item.get(ATTR_PACKS)
+        if packs is not None:
+            item[ATTR_QUANTITY] = len(packs)
+            item[ATTR_REMAINING] = packs[0] if packs else None
+
+    @staticmethod
+    def _consume(item: dict[str, Any], amount: float) -> float:
+        """Use units from the packs, first pack first. Returns what is left over."""
+        packs = item[ATTR_PACKS]
+        while amount > 1e-9 and packs:
+            if amount < packs[0] - 1e-9:
+                packs[0] = round(packs[0] - amount, 6)
+                amount = 0.0
+            else:
+                amount = round(amount - packs.pop(0), 6)
+        FreezerInventory._sync(item)
+        return amount
 
     def _stock(self, name: str, location: str, appliance: str | None) -> float:
         """Total units of an item across its batches."""
-        total = 0.0
-        for i in self._matches(name, None, location, appliance):
-            size = i.get(ATTR_PACKAGE_SIZE)
-            if size:
-                remaining = i.get(ATTR_REMAINING)
-                if remaining is None:
-                    remaining = size
-                total += (i[ATTR_QUANTITY] - 1) * size + remaining
-            else:
-                total += i[ATTR_QUANTITY]
-        return total
+        return sum(
+            self._batch_units(i)
+            for i in self._matches(name, None, location, appliance)
+        )
 
     def _packages(self, name: str, location: str, appliance: str | None) -> float:
         return float(
@@ -291,19 +312,16 @@ class FreezerInventory:
                 for i in self._matches(item[ATTR_NAME], None, item[ATTR_LOCATION], item.get(ATTR_APPLIANCE))
                 if i is not item
                 and i.get(ATTR_BEST_BEFORE) == best_before
-                and i.get(ATTR_PACKAGE_SIZE) == item.get(ATTR_PACKAGE_SIZE)
+                and (i.get(ATTR_PACKS) is None) == (item.get(ATTR_PACKS) is None)
             ),
             None,
         )
         if twin is not None:
-            size = item.get(ATTR_PACKAGE_SIZE)
-            if size:
-                units = self._batch_units(twin) + self._batch_units(item)
-                packages = math.ceil(units / size - 1e-9)
-                twin[ATTR_QUANTITY] = packages
-                twin[ATTR_REMAINING] = round(units - (packages - 1) * size, 6)
+            if item.get(ATTR_PACKS) is not None:
+                twin[ATTR_PACKS] = twin[ATTR_PACKS] + item[ATTR_PACKS]
             else:
                 twin[ATTR_QUANTITY] += item[ATTR_QUANTITY]
+            self._sync(twin)
             self.items.remove(item)
         self._changed()
 
@@ -370,16 +388,12 @@ class FreezerInventory:
         location: str = LOCATION_FREEZER,
         appliance: str | None = None,
     ) -> None:
-        """Add packages. A different best-before date creates a separate batch."""
-        candidates = [
-            i
-            for i in self._matches(name, None, location, appliance)
-            if package_size is None or i.get(ATTR_PACKAGE_SIZE) == package_size
-        ]
-        if best_before:
-            candidates = [i for i in candidates if i.get(ATTR_BEST_BEFORE) == best_before]
-        else:
-            candidates = [i for i in candidates if i.get(ATTR_BEST_BEFORE) is None]
+        """Add packages. The same best-before date joins the existing batch,
+        even when the packages differ in size."""
+        candidates = self._matches(name, None, location, appliance)
+        candidates = [i for i in candidates if i.get(ATTR_BEST_BEFORE) == (best_before or None)]
+        if package_size is not None:
+            candidates = [i for i in candidates if i.get(ATTR_PACKS) is not None]
         item = candidates[0] if candidates else None
 
         if item is None:
@@ -388,7 +402,8 @@ class FreezerInventory:
                 ATTR_NAME: name.strip(),
                 ATTR_QUANTITY: 0,
                 ATTR_PACKAGE_SIZE: package_size,
-                ATTR_REMAINING: package_size,
+                ATTR_REMAINING: None,
+                ATTR_PACKS: [] if package_size is not None else None,
                 ATTR_DATE_ADDED: dt_util.now().date().isoformat(),
                 ATTR_BEST_BEFORE: best_before,
                 ATTR_LOCATION: location,
@@ -405,9 +420,13 @@ class FreezerInventory:
                     item[ATTR_MIN_UNIT] = other.get(ATTR_MIN_UNIT, MIN_UNIT_PACKAGES)
                     break
             self.items.append(item)
-        item[ATTR_QUANTITY] += quantity
-        if item.get(ATTR_PACKAGE_SIZE) and item.get(ATTR_REMAINING) is None:
-            item[ATTR_REMAINING] = item[ATTR_PACKAGE_SIZE]
+        if item.get(ATTR_PACKS) is not None:
+            size = package_size if package_size is not None else item.get(ATTR_PACKAGE_SIZE)
+            item[ATTR_PACKS] += [size] * quantity
+            item[ATTR_PACKAGE_SIZE] = size
+            self._sync(item)
+        else:
+            item[ATTR_QUANTITY] += quantity
         if self.shop_on_add:
             self._shop("complete_item", item[ATTR_NAME])
         self._changed()
@@ -421,17 +440,30 @@ class FreezerInventory:
         location: str = LOCATION_FREEZER,
         appliance: str | None = None,
     ) -> None:
-        """Remove (part of) an entry."""
+        """Remove (part of) an entry; packages are taken from the end."""
         item = self._find(name, item_id, location, appliance)
         if item is None:
             return
-        before = self._level(name, location, appliance)
+        before = self._level(item[ATTR_NAME], item[ATTR_LOCATION], item.get(ATTR_APPLIANCE))
         if quantity is None or quantity >= item[ATTR_QUANTITY]:
             self.items.remove(item)
         else:
-            item[ATTR_QUANTITY] -= quantity
+            self._set_count(item, item[ATTR_QUANTITY] - quantity)
         self._check_stock(item[ATTR_NAME], item[ATTR_LOCATION], item.get(ATTR_APPLIANCE), before)
         self._changed()
+
+    @staticmethod
+    def _set_count(item: dict[str, Any], count: int) -> None:
+        """Set the number of packages; new ones get the default size."""
+        packs = item.get(ATTR_PACKS)
+        if packs is None:
+            item[ATTR_QUANTITY] = count
+            return
+        if count < len(packs):
+            del packs[count:]
+        else:
+            packs.extend([item[ATTR_PACKAGE_SIZE]] * (count - len(packs)))
+        FreezerInventory._sync(item)
 
     @callback
     def async_set_quantity(
@@ -446,11 +478,11 @@ class FreezerInventory:
         item = self._find(name, item_id, location, appliance)
         if item is None:
             return
-        before = self._level(name, location, appliance)
+        before = self._level(item[ATTR_NAME], item[ATTR_LOCATION], item.get(ATTR_APPLIANCE))
         if quantity <= 0:
             self.items.remove(item)
         else:
-            item[ATTR_QUANTITY] = quantity
+            self._set_count(item, quantity)
         self._check_stock(item[ATTR_NAME], item[ATTR_LOCATION], item.get(ATTR_APPLIANCE), before)
         self._changed()
 
@@ -463,18 +495,28 @@ class FreezerInventory:
         location: str = LOCATION_FREEZER,
         appliance: str | None = None,
     ) -> None:
-        """Set the total units; packages are recalculated (last one may be partial)."""
+        """Set the total units of a batch.
+
+        Lowering uses units from the first package; raising adds packages of the
+        default size (the last one may be partial).
+        """
         item = self._find(name, item_id, location, appliance)
-        if item is None or not item.get(ATTR_PACKAGE_SIZE):
+        if item is None or item.get(ATTR_PACKS) is None:
             return
-        before = self._level(name, location, appliance)
-        size = item[ATTR_PACKAGE_SIZE]
+        before = self._level(item[ATTR_NAME], item[ATTR_LOCATION], item.get(ATTR_APPLIANCE))
+        current = self._batch_units(item)
         if units <= 1e-9:
             self.items.remove(item)
-        else:
-            packages = math.ceil(units / size - 1e-9)
-            item[ATTR_QUANTITY] = packages
-            item[ATTR_REMAINING] = round(units - (packages - 1) * size, 6)
+        elif units < current:
+            self._consume(item, round(current - units, 6))
+        elif units > current:
+            extra = round(units - current, 6)
+            size = item[ATTR_PACKAGE_SIZE]
+            while extra > 1e-9:
+                part = min(size, extra)
+                item[ATTR_PACKS].append(part)
+                extra = round(extra - part, 6)
+            self._sync(item)
         self._check_stock(item[ATTR_NAME], item[ATTR_LOCATION], item.get(ATTR_APPLIANCE), before)
         self._changed()
 
@@ -487,10 +529,10 @@ class FreezerInventory:
         location: str = LOCATION_FREEZER,
         appliance: str | None = None,
     ) -> None:
-        """Use part of the contents; opens the next package when one is used up.
+        """Use part of the contents.
 
-        The given batch (if any) is used first, then the oldest best-before batches;
-        leftover amounts continue into the next batch.
+        The given batch (if any) is used first, then the oldest best-before
+        batches; leftover amounts continue into the next batch.
         """
         changed = False
         before = self._level(name, location, appliance)
@@ -500,25 +542,12 @@ class FreezerInventory:
         for item in batches:
             if amount <= 1e-9:
                 break
-            size = item.get(ATTR_PACKAGE_SIZE)
-            if not size:
+            if item.get(ATTR_PACKS) is None:
                 continue
             changed = True
-            remaining = item.get(ATTR_REMAINING)
-            if remaining is None:
-                remaining = size
-            while amount > 1e-9 and item[ATTR_QUANTITY] > 0:
-                if amount < remaining - 1e-9:
-                    remaining = round(remaining - amount, 6)
-                    amount = 0
-                else:
-                    amount = round(amount - remaining, 6)
-                    item[ATTR_QUANTITY] -= 1
-                    remaining = size
-            if item[ATTR_QUANTITY] <= 0:
+            amount = self._consume(item, amount)
+            if not item[ATTR_PACKS]:
                 self.items.remove(item)
-            else:
-                item[ATTR_REMAINING] = remaining
         if changed:
             self._check_stock(name, location, appliance, before)
             self._changed()

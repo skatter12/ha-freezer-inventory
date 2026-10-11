@@ -93,7 +93,7 @@ class FreezerInventoryPanel extends HTMLElement {
           <form id="add">
             <label style="display:none">Place<select name="place" id="place"></select></label>
             <label>Name<input name="name" required list="fi-names" autocomplete="off" placeholder="e.g. Minced beef" /></label>
-            <label>Quantity<input name="quantity" type="number" min="1" value="1" required /></label>
+            <label>Packages<input name="quantity" type="number" min="1" value="1" required /></label>
             <label>Per package<input name="package_size" type="number" min="0" step="any" placeholder="e.g. 4" /></label>
             <label>Best before<input name="best_before" type="date" /></label>
             <button type="submit">Add</button>
@@ -385,23 +385,21 @@ class FreezerInventoryPanel extends HTMLElement {
   }
 
   _totalUnits(i) {
-    const remaining = i.remaining ?? i.package_size;
-    return Math.round(((i.quantity - 1) * i.package_size + remaining) * 1e6) / 1e6;
+    const packs = i.packs || [];
+    return Math.round(packs.reduce((a, b) => a + b, 0) * 1e6) / 1e6;
   }
 
   _breakdown(i) {
-    const remaining = i.remaining ?? i.package_size;
-    const full = i.quantity - 1;
-    const parts = [];
-    if (full > 0) parts.push(`${full} x ${i.package_size}`);
-    parts.push(`1 x ${remaining}`);
+    const counts = new Map();
+    (i.packs || []).forEach((p) => counts.set(p, (counts.get(p) || 0) + 1));
+    const parts = [...counts].map(([size, n]) => `${n} x ${size}`);
     return `${parts.join(" + ")} = ${this._totalUnits(i)}`;
   }
 
   _groupHead(name, items) {
     const batches = items.filter((b) => b.name === name);
     const pkgs = batches.reduce((s, b) => s + b.quantity, 0);
-    const withSize = batches.filter((b) => b.package_size);
+    const withSize = batches.filter((b) => b.packs);
     const units = withSize.reduce((s, b) => s + this._totalUnits(b), 0);
     const dates = new Set(batches.map((b) => b.best_before || "")).size;
     const n = this._esc(name);
@@ -419,11 +417,11 @@ class FreezerInventoryPanel extends HTMLElement {
         <small>Add to shopping list at or below (empty = off):</small>
         <input type="number" min="0" step="any" value="${minVal}" placeholder="off" data-f="min" style="width:80px" />
         <select data-f="minunit">
-          <option value="packages"${minUnit === "packages" ? " selected" : ""}>Quantity</option>
-          <option value="units"${minUnit === "units" ? " selected" : ""}>Units (per quantity)</option>
+          <option value="packages"${minUnit === "packages" ? " selected" : ""}>Packages</option>
+          <option value="units"${minUnit === "units" ? " selected" : ""}>Units (total)</option>
         </select></div>` : ""}
       ${open ? `<div class="fi-addrow" data-name="${n}">
-        <input type="number" min="1" value="1" placeholder="Quantity" data-f="quantity" />
+        <input type="number" min="1" value="1" placeholder="Packages" data-f="quantity" />
         <input type="number" min="0" step="any" placeholder="Per package" data-f="package_size" />
         <input type="date" data-f="best_before" />
         <button data-action="add-batch" data-name="${n}">Add</button></div>` : ""}
@@ -493,7 +491,7 @@ class FreezerInventoryPanel extends HTMLElement {
             <div class="fi-meta">${this._expiry(i)}</div>
             <div class="fi-meta">Added ${this._esc(this._fmtDate(i.date_added))}</div>
             ${
-              i.package_size
+              i.packs
                 ? `<div class="fi-meta">${this._breakdown(i)}</div>
                    <div class="fi-use">
                      <input type="number" min="0" step="any" placeholder="Used" data-action="use-amount" />
@@ -508,7 +506,7 @@ class FreezerInventoryPanel extends HTMLElement {
           </label>
           <button class="secondary" data-action="inc" ${ref} data-qty="${i.quantity}">+</button>
           ${
-            i.package_size
+            i.packs
               ? `<label class="fi-field">Units
                    <input class="fi-qty" type="number" min="0" step="any" value="${this._totalUnits(i)}" data-action="set-units" ${ref} />
                  </label>`
