@@ -23,12 +23,12 @@ class FreezerInventoryPanel extends HTMLElement {
     this.innerHTML = `
       <style>
         freezer-inventory-panel { display: block; }
-        .fi-wrap { max-width: 800px; margin: 0 auto; padding: 16px;
+        .fi-wrap { max-width: 900px; margin: 0 auto; padding: 16px;
           color: var(--primary-text-color); font-family: var(--paper-font-body1_-_font-family, sans-serif); }
         .fi-wrap h1 { margin: 0 0 16px; font-size: 24px; font-weight: 400; }
         .fi-card { background: var(--card-background-color, #fff); border-radius: 12px;
           padding: 16px; margin-bottom: 16px; box-shadow: var(--ha-card-box-shadow, 0 1px 3px rgba(0,0,0,.2)); }
-        .fi-wrap form { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1.5fr auto; gap: 8px; align-items: end; }
+        .fi-wrap form { display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr auto; gap: 8px; align-items: end; }
         .fi-wrap label { display: flex; flex-direction: column; font-size: 12px; gap: 4px; color: var(--secondary-text-color); }
         .fi-wrap input { padding: 8px; border-radius: 6px; font-size: 14px; box-sizing: border-box; width: 100%;
           border: 1px solid var(--divider-color, #ccc);
@@ -38,12 +38,13 @@ class FreezerInventoryPanel extends HTMLElement {
         .fi-wrap button.secondary { background: var(--secondary-background-color, #eee); color: var(--primary-text-color);
           border: 1px solid var(--divider-color, #ccc); }
         .fi-wrap button.danger { background: var(--error-color, #db4437); color: #fff; }
+        .fi-hint { font-size: 12px; color: var(--secondary-text-color); margin-top: 8px; min-height: 16px; }
         .fi-toolbar { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
         .fi-summary { color: var(--secondary-text-color); font-size: 13px; margin-bottom: 8px; }
-        .fi-item { display: flex; align-items: center; gap: 8px; padding: 10px 0;
+        .fi-item { display: flex; align-items: center; gap: 8px; padding: 10px 0; flex-wrap: wrap;
           border-bottom: 1px solid var(--divider-color, #ddd); }
         .fi-item:last-child { border-bottom: 0; }
-        .fi-info { flex: 1; min-width: 0; }
+        .fi-info { flex: 1; min-width: 160px; }
         .fi-name { font-weight: 500; }
         .fi-meta { font-size: 12px; color: var(--secondary-text-color); }
         .fi-expired { color: var(--error-color, #db4437); font-weight: 500; }
@@ -60,13 +61,14 @@ class FreezerInventoryPanel extends HTMLElement {
         <h1>Freezer Inventory</h1>
         <div class="fi-card">
           <form id="add">
-            <label>Name<input name="name" required placeholder="e.g. Minced beef" /></label>
+            <label>Name<input name="name" required list="fi-names" autocomplete="off" placeholder="e.g. Minced beef" /></label>
             <label>Quantity<input name="quantity" type="number" min="1" value="1" required /></label>
-            <label>Unit<input name="unit" placeholder="e.g. pcs" /></label>
-            <label>Per package<input name="package_size" type="number" min="0" step="any" placeholder="e.g. 10" /></label>
+            <label>Per package<input name="package_size" type="number" min="0" step="any" placeholder="e.g. 4" /></label>
             <label>Best before<input name="best_before" type="date" /></label>
             <button type="submit">Add</button>
           </form>
+          <datalist id="fi-names"></datalist>
+          <div class="fi-hint" id="hint"></div>
         </div>
         <div class="fi-card">
           <div class="fi-toolbar">
@@ -78,22 +80,22 @@ class FreezerInventoryPanel extends HTMLElement {
         </div>
       </div>`;
 
-    this.querySelector("#add").addEventListener("submit", async (ev) => {
+    const form = this.querySelector("#add");
+    form.addEventListener("submit", async (ev) => {
       ev.preventDefault();
-      const form = ev.target;
       const data = {
         name: form.name.value.trim(),
         quantity: parseInt(form.quantity.value, 10) || 1,
       };
-      if (form.unit.value.trim()) data.unit = form.unit.value.trim();
       if (parseFloat(form.package_size.value) > 0) data.package_size = parseFloat(form.package_size.value);
       if (form.best_before.value) data.best_before = form.best_before.value;
-      await this._hass.callService("freezer_inventory", "add_item", data);
-      this._refreshSoon();
+      await this._call("add_item", data);
       form.reset();
       form.quantity.value = 1;
+      this._updateHint();
       form.name.focus();
     });
+    form.name.addEventListener("input", () => this._updateHint());
 
     this.querySelector("#search").addEventListener("input", (ev) => {
       this._filter = ev.target.value.trim().toLowerCase();
@@ -103,52 +105,43 @@ class FreezerInventoryPanel extends HTMLElement {
 
     this.querySelector("#clear").addEventListener("click", () => {
       if (confirm("Remove everything from the freezer inventory?")) {
-        this._hass.callService("freezer_inventory", "clear", {});
-        this._refreshSoon();
+        this._call("clear", {});
       }
     });
 
     this.querySelector("#list").addEventListener("click", (ev) => {
       const btn = ev.target.closest("button[data-action]");
       if (!btn) return;
-      const name = btn.dataset.name;
+      const target = { name: btn.dataset.name, id: btn.dataset.id };
       const qty = parseInt(btn.dataset.qty, 10) || 0;
       if (btn.dataset.action === "use") {
         const input = btn.parentElement.querySelector("input[data-action='use-amount']");
         const amount = parseFloat(input.value);
-        if (amount > 0) this._call("use_amount", { name, amount });
-        return;
-      }
-      if (btn.dataset.action === "inc") {
-        this._call("set_quantity", { name, quantity: qty + 1 });
+        if (amount > 0) this._call("use_amount", { ...target, amount });
+      } else if (btn.dataset.action === "inc") {
+        this._call("set_quantity", { ...target, quantity: qty + 1 });
       } else if (btn.dataset.action === "dec") {
-        this._call("set_quantity", { name, quantity: Math.max(1, qty - 1) });
+        this._call("set_quantity", { ...target, quantity: Math.max(1, qty - 1) });
       } else if (btn.dataset.action === "del") {
-        this._call("remove_item", { name });
+        this._call("remove_item", target);
       }
     });
 
     this.querySelector("#list").addEventListener("change", (ev) => {
-      const unitsInput = ev.target.closest("input[data-action='set-units']");
-      if (unitsInput) {
-        const units = parseFloat(unitsInput.value);
-        if (Number.isNaN(units) || units < 0) {
-          this._lastItems = null;
-          this._renderList();
-          return;
-        }
-        this._call("set_units", { name: unitsInput.dataset.name, units });
-        return;
-      }
-      const input = ev.target.closest("input[data-action='set']");
+      const input = ev.target.closest("input[data-action]");
       if (!input) return;
-      const quantity = parseInt(input.value, 10);
-      if (Number.isNaN(quantity) || quantity < 0) {
+      const target = { name: input.dataset.name, id: input.dataset.id };
+      const value = parseFloat(input.value);
+      if (Number.isNaN(value) || value < 0) {
         this._lastItems = null;
         this._renderList();
         return;
       }
-      this._call("set_quantity", { name: input.dataset.name, quantity });
+      if (input.dataset.action === "set") {
+        this._call("set_quantity", { ...target, quantity: Math.round(value) });
+      } else if (input.dataset.action === "set-units") {
+        this._call("set_units", { ...target, units: value });
+      }
     });
   }
 
@@ -171,6 +164,21 @@ class FreezerInventoryPanel extends HTMLElement {
     }
   }
 
+  _items() {
+    const stateObj = this._hass.states[ENTITY_ID];
+    return (stateObj && stateObj.attributes.items) || [];
+  }
+
+  _updateHint() {
+    const name = this.querySelector("#add").name.value.trim().toLowerCase();
+    const existing = this._items().filter((i) => i.name.toLowerCase() === name);
+    this.querySelector("#hint").textContent = existing.length
+      ? `Already in the freezer: ${existing
+          .map((i) => `${i.quantity} pkg${i.best_before ? ` (best before ${i.best_before})` : ""}`)
+          .join(", ")}. Same date (or no date) adds to that batch; a new date creates a new batch.`
+      : "";
+  }
+
   _esc(value) {
     const el = document.createElement("div");
     el.textContent = value ?? "";
@@ -191,35 +199,42 @@ class FreezerInventoryPanel extends HTMLElement {
   }
 
   _breakdown(i) {
-    const unit = this._esc(i.unit);
     const remaining = i.remaining ?? i.package_size;
     const full = i.quantity - 1;
     const parts = [];
     if (full > 0) parts.push(`${full} × ${i.package_size}`);
     parts.push(`1 × ${remaining}`);
-    return `${parts.join(" + ")} = ${this._totalUnits(i)} ${unit}`;
+    return `${parts.join(" + ")} = ${this._totalUnits(i)}`;
   }
 
   _renderList() {
     const stateObj = this._hass.states[ENTITY_ID];
-    const items = (stateObj && stateObj.attributes.items) || [];
+    const items = this._items();
     const key = JSON.stringify(items);
     if (key === this._lastItems) return;
     this._lastItems = key;
 
+    const names = [...new Set(items.map((i) => i.name))];
+    this.querySelector("#fi-names").innerHTML = names.map((n) => `<option value="${this._esc(n)}"></option>`).join("");
+    this._updateHint();
+
     const shown = items
       .filter((i) => i.name.toLowerCase().includes(this._filter))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort(
+        (a, b) =>
+          a.name.localeCompare(b.name) ||
+          (a.best_before || "9999").localeCompare(b.best_before || "9999")
+      );
 
-    const total = items.reduce((sum, i) => sum + i.quantity, 0);
     this.querySelector("#summary").textContent = stateObj
-      ? `${items.length} items, ${total} total`
+      ? `${names.length} items in ${items.length} batches`
       : `Entity ${ENTITY_ID} not found. Is the integration set up?`;
 
     this.querySelector("#list").innerHTML = shown.length
       ? shown
-          .map(
-            (i) => `
+          .map((i) => {
+            const ref = `data-name="${this._esc(i.name)}" data-id="${this._esc(i.id)}"`;
+            return `
         <div class="fi-item">
           <div class="fi-info">
             <div class="fi-name">${this._esc(i.name)}</div>
@@ -229,26 +244,26 @@ class FreezerInventoryPanel extends HTMLElement {
                 ? `<div class="fi-meta">${this._breakdown(i)}</div>
                    <div class="fi-use">
                      <input type="number" min="0" step="any" placeholder="Used" data-action="use-amount" />
-                     <button class="secondary" data-action="use" data-name="${this._esc(i.name)}">Use ${this._esc(i.unit)}</button>
+                     <button class="secondary" data-action="use" ${ref}>Use</button>
                    </div>`
                 : ""
             }
           </div>
-          <button class="secondary" data-action="dec" data-name="${this._esc(i.name)}" data-qty="${i.quantity}">−</button>
+          <button class="secondary" data-action="dec" ${ref} data-qty="${i.quantity}">−</button>
           <label class="fi-field">Packages
-            <input class="fi-qty" type="number" min="0" value="${i.quantity}" data-action="set" data-name="${this._esc(i.name)}" />
+            <input class="fi-qty" type="number" min="0" value="${i.quantity}" data-action="set" ${ref} />
           </label>
-          <button class="secondary" data-action="inc" data-name="${this._esc(i.name)}" data-qty="${i.quantity}">+</button>
+          <button class="secondary" data-action="inc" ${ref} data-qty="${i.quantity}">+</button>
           ${
             i.package_size
-              ? `<label class="fi-field">${this._esc(i.unit) || "Units"}
-                   <input class="fi-qty" type="number" min="0" step="any" value="${this._totalUnits(i)}" data-action="set-units" data-name="${this._esc(i.name)}" />
+              ? `<label class="fi-field">Units
+                   <input class="fi-qty" type="number" min="0" step="any" value="${this._totalUnits(i)}" data-action="set-units" ${ref} />
                  </label>`
               : ""
           }
-          <button class="danger" data-action="del" data-name="${this._esc(i.name)}">Delete</button>
-        </div>`
-          )
+          <button class="danger" data-action="del" ${ref}>Delete</button>
+        </div>`;
+          })
           .join("")
       : `<div class="fi-empty">${items.length ? "No matches." : "The freezer is empty."}</div>`;
   }

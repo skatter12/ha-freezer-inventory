@@ -1,6 +1,6 @@
 add_item:
   name: Add item
-  description: Add an item to the freezer (increases quantity if it already exists).
+  description: Add packages of an item. The same name with a different best-before date is stored as a separate batch.
   fields:
     name:
       name: Name
@@ -11,23 +11,17 @@ add_item:
         text:
     quantity:
       name: Quantity
-      description: How many to add.
+      description: Number of packages to add.
       default: 1
       selector:
         number:
           min: 1
           max: 1000
           mode: box
-    unit:
-      name: Unit
-      description: Unit of the contents, e.g. pcs, g, portions (or bags when no package size is set).
-      example: pcs
-      selector:
-        text:
     package_size:
-      name: Contents per package
-      description: How much is in each package (in the unit above). Enables partial use with the use_amount service.
-      example: 10
+      name: Per package
+      description: How many units are in each package.
+      example: 4
       selector:
         number:
           min: 0.01
@@ -36,12 +30,12 @@ add_item:
           mode: box
     best_before:
       name: Best before
-      description: Optional best-before date.
+      description: Optional best-before date. A new date creates a new batch.
       selector:
         date:
 remove_item:
   name: Remove item
-  description: Remove a quantity of an item from the freezer.
+  description: Remove packages of an item.
   fields:
     name:
       name: Name
@@ -50,9 +44,14 @@ remove_item:
       example: Minced beef
       selector:
         text:
+    id:
+      name: Batch ID
+      description: Optional batch id (see the sensor attributes). Without it the batch with the oldest best-before date is used.
+      selector:
+        text:
     quantity:
       name: Quantity
-      description: How many to remove. Omit to remove the whole item.
+      description: Number of packages to remove. Omit to remove the whole batch.
       selector:
         number:
           min: 1
@@ -60,7 +59,7 @@ remove_item:
           mode: box
 set_quantity:
   name: Set quantity
-  description: Set the quantity of an existing item (0 removes it).
+  description: Set the number of packages of a batch (0 removes it).
   fields:
     name:
       name: Name
@@ -69,9 +68,14 @@ set_quantity:
       example: Minced beef
       selector:
         text:
+    id:
+      name: Batch ID
+      description: Optional batch id. Without it the batch with the oldest best-before date is used.
+      selector:
+        text:
     quantity:
       name: Quantity
-      description: The new quantity.
+      description: The new number of packages.
       required: true
       selector:
         number:
@@ -80,18 +84,23 @@ set_quantity:
           mode: box
 set_units:
   name: Set units
-  description: Set the total number of units for an item with a package size. Packages are recalculated, the last one may be partly full.
+  description: Set the total units of a batch with a package size. Packages are recalculated, the last one may be partly full.
   fields:
     name:
       name: Name
-      description: Name of the item (must have a package size).
+      description: Name of the item.
       required: true
       example: Minced beef
       selector:
         text:
+    id:
+      name: Batch ID
+      description: Optional batch id. Without it the batch with the oldest best-before date is used.
+      selector:
+        text:
     units:
       name: Units
-      description: Total units in the freezer (0 removes the item).
+      description: Total units (0 removes the batch).
       required: true
       example: 6
       selector:
@@ -102,7 +111,7 @@ set_units:
           mode: box
 use_amount:
   name: Use amount
-  description: Use part of an item's contents without removing a whole package. When the open package is used up, the next one is opened.
+  description: Use part of an item's contents without removing a whole package. When the open package is used up, the next one is opened. Without a batch id, the oldest best-before batch is used first.
   fields:
     name:
       name: Name
@@ -111,11 +120,16 @@ use_amount:
       example: Minced beef
       selector:
         text:
+    id:
+      name: Batch ID
+      description: Optional batch id.
+      selector:
+        text:
     amount:
       name: Amount
-      description: How much to use, in the item's unit.
+      description: How many units to use.
       required: true
-      example: 5
+      example: 2
       selector:
         number:
           min: 0.01
