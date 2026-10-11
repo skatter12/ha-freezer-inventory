@@ -15,6 +15,10 @@ Copy `custom_components/freezer_inventory` into your Home Assistant `config/cust
 
 ## Usage
 
+After setup a **Freezer** entry appears in the sidebar. The panel lets you add items (name, quantity, unit, best-before date), adjust quantities with +/−, delete items, search, and clear everything. Items expiring within 30 days are highlighted, and expired ones are marked in red. The panel needs Home Assistant 2024.7 or newer.
+
+The same functionality is available to automations and scripts:
+
 - `sensor.freezer_items` shows the total quantity; the full list is in its `items` attribute.
 - Services:
   - `freezer_inventory.add_item` – `name`, optional `quantity`, `unit`, `best_before`. Adds to the quantity if the item already exists.

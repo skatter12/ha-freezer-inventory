@@ -1,10 +1,12 @@
 """The Freezer Inventory integration."""
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import voluptuous as vol
 
+from homeassistant.components import frontend, panel_custom
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv
@@ -28,6 +30,10 @@ from .const import (
 )
 
 PLATFORMS = ["sensor"]
+
+PANEL_URL_PATH = "freezer-inventory"
+PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
+PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
 ADD_SCHEMA = vol.Schema(
     {
@@ -143,7 +149,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(DOMAIN, SERVICE_CLEAR, clear)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await _async_register_panel(hass)
     return True
+
+
+async def _async_register_panel(hass: HomeAssistant) -> None:
+    """Serve the panel JS and add it to the sidebar."""
+    from homeassistant.components.http import StaticPathConfig
+
+    if not hass.data.get(f"{DOMAIN}_static_registered"):
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(PANEL_STATIC_URL, str(PANEL_FILE), False)]
+        )
+        hass.data[f"{DOMAIN}_static_registered"] = True
+    await panel_custom.async_register_panel(
+        hass,
+        webcomponent_name="freezer-inventory-panel",
+        frontend_url_path=PANEL_URL_PATH,
+        module_url=PANEL_STATIC_URL,
+        sidebar_title="Freezer",
+        sidebar_icon="mdi:fridge-industrial-outline",
+        require_admin=False,
+    )
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -152,5 +179,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return False
     for service in (SERVICE_ADD_ITEM, SERVICE_REMOVE_ITEM, SERVICE_CLEAR):
         hass.services.async_remove(DOMAIN, service)
+    frontend.async_remove_panel(hass, PANEL_URL_PATH)
     hass.data.pop(DOMAIN)
     return True
