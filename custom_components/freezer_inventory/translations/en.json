@@ -1,13 +1,28 @@
 {
+  "title": "Freezer Inventory",
   "config": {
-    "abort": {
-      "already_configured": "Service is already configured"
-    },
     "step": {
       "user": {
-        "description": "Do you want to set up the freezer inventory?"
+        "description": "Optionally pick the temperature entities for your freezer and fridge. You can change them later under Configure.",
+        "data": {
+          "freezer_temperature_entity": "Freezer temperature entity",
+          "fridge_temperature_entity": "Fridge temperature entity"
+        }
       }
+    },
+    "abort": {
+      "already_configured": "Service is already configured"
     }
   },
-  "title": "Freezer Inventory"
+  "options": {
+    "step": {
+      "init": {
+        "description": "Pick the temperature entities for your freezer and fridge. Clear a field to remove it.",
+        "data": {
+          "freezer_temperature_entity": "Freezer temperature entity",
+          "fridge_temperature_entity": "Fridge temperature entity"
+        }
+      }
+    }
+  }
 }

@@ -10,6 +10,8 @@ from . import FreezerInventory
 from .const import (
     ATTR_ITEMS,
     ATTR_LOCATION,
+    CONF_FREEZER_TEMP,
+    CONF_FRIDGE_TEMP,
     ATTR_QUANTITY,
     DOMAIN,
     EVENT_UPDATED,
@@ -23,10 +25,11 @@ async def async_setup_entry(
 ) -> None:
     """Set up the freezer sensor."""
     inventory = hass.data[DOMAIN]
+    conf = {**entry.data, **entry.options}
     async_add_entities(
         [
-            InventorySensor(inventory, LOCATION_FREEZER, "Freezer items", "mdi:fridge-industrial-outline", f"{DOMAIN}_items"),
-            InventorySensor(inventory, LOCATION_FRIDGE, "Fridge items", "mdi:fridge-outline", f"{DOMAIN}_fridge_items"),
+            InventorySensor(inventory, LOCATION_FREEZER, "Freezer items", "mdi:fridge-industrial-outline", f"{DOMAIN}_items", conf.get(CONF_FREEZER_TEMP)),
+            InventorySensor(inventory, LOCATION_FRIDGE, "Fridge items", "mdi:fridge-outline", f"{DOMAIN}_fridge_items", conf.get(CONF_FRIDGE_TEMP)),
         ]
     )
 
@@ -43,10 +46,12 @@ class InventorySensor(SensorEntity):
         name: str,
         icon: str,
         unique_id: str,
+        temperature_entity: str | None = None,
     ) -> None:
         """Initialize."""
         self._inventory = inventory
         self._location = location
+        self._temperature_entity = temperature_entity
         self._attr_name = name
         self._attr_icon = icon
         self._attr_unique_id = unique_id
@@ -65,6 +70,7 @@ class InventorySensor(SensorEntity):
         return {
             ATTR_ITEMS: [dict(item) for item in self._items()],
             "revision": self._inventory.revision,
+            "temperature_entity": self._temperature_entity,
         }
 
     async def async_added_to_hass(self) -> None:

@@ -24,6 +24,9 @@ ATTR_BEST_BEFORE = "best_before"
 ATTR_ITEMS = "items"
 ATTR_LOCATION = "location"
 
+CONF_FREEZER_TEMP = "freezer_temperature_entity"
+CONF_FRIDGE_TEMP = "fridge_temperature_entity"
+
 LOCATION_FREEZER = "freezer"
 LOCATION_FRIDGE = "fridge"
 LOCATIONS = [LOCATION_FREEZER, LOCATION_FRIDGE]

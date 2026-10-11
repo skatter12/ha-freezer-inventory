@@ -45,7 +45,7 @@ PLATFORMS = ["sensor"]
 
 PANEL_URL_PATH = "freezer-inventory"
 PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
-PANEL_VERSION = "0.8.0"
+PANEL_VERSION = "0.9.0"
 PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
 LOCATION = vol.All(vol.Lower, vol.In(LOCATIONS))
@@ -130,6 +130,10 @@ class FreezerInventory:
             item.setdefault(ATTR_BEST_BEFORE, None)
             item.setdefault(ATTR_LOCATION, LOCATION_FREEZER)
             item.pop("unit", None)
+
+    async def async_save(self) -> None:
+        """Write pending changes immediately."""
+        await self._store.async_save({ATTR_ITEMS: self.items})
 
     @callback
     def _changed(self) -> None:
@@ -368,8 +372,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(DOMAIN, SERVICE_CLEAR, clear, CLEAR_SCHEMA)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await _async_register_panel(hass)
     return True
+
+
+async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload when the options change."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def _async_register_panel(hass: HomeAssistant) -> None:
@@ -406,5 +416,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     ):
         hass.services.async_remove(DOMAIN, service)
     frontend.async_remove_panel(hass, PANEL_URL_PATH)
-    hass.data.pop(DOMAIN)
+    inventory = hass.data.pop(DOMAIN)
+    await inventory.async_save()
     return True

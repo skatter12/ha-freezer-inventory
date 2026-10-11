@@ -69,6 +69,8 @@ class FreezerInventoryPanel extends HTMLElement {
           background: var(--secondary-background-color, #eee); color: var(--primary-text-color);
           border: 1px solid var(--divider-color, #ccc); }
         .fi-wrap .fi-tabs button.active { background: var(--primary-color); color: var(--text-primary-color, #fff); }
+        .fi-temp { font-size: 15px; margin: -6px 0 14px; color: var(--secondary-text-color); }
+        .fi-temp b { font-size: 22px; color: var(--primary-text-color); }
         .fi-box { border: 1px solid var(--divider-color, #ccc); border-radius: 16px; padding: 12px 16px;
           margin-bottom: 14px; background: var(--secondary-background-color, #f7f7f7); }
         .fi-box .fi-gtitle { margin-top: 0; font-size: 17px; }
@@ -86,6 +88,7 @@ class FreezerInventoryPanel extends HTMLElement {
       <div class="fi-wrap">
         <h1>Inventory</h1>
         <div class="fi-tabs" id="tabs"></div>
+        <div class="fi-temp" id="temp"></div>
         <div class="fi-card">
           <form id="add">
             <label>Name<input name="name" required list="fi-names" autocomplete="off" placeholder="e.g. Minced beef" /></label>
@@ -231,6 +234,18 @@ class FreezerInventoryPanel extends HTMLElement {
     }
   }
 
+  _temp(loc) {
+    const sensor = this._hass.states[ENTITIES[loc]];
+    const id = sensor && sensor.attributes.temperature_entity;
+    if (!id) return null;
+    const st = this._hass.states[id];
+    if (!st) return { text: "unavailable" };
+    const v = parseFloat(st.state);
+    if (Number.isNaN(v)) return { text: st.state };
+    const unit = st.attributes.unit_of_measurement || "";
+    return { text: `${Math.round(v * 10) / 10} ${unit}`.trim() };
+  }
+
   _items() {
     const stateObj = this._hass.states[ENTITIES[this._loc]];
     return (stateObj && stateObj.attributes.items) || [];
@@ -316,16 +331,24 @@ class FreezerInventoryPanel extends HTMLElement {
   _renderList() {
     const stateObj = this._hass.states[ENTITIES[this._loc]];
     const items = this._items();
-    const key = this._loc + JSON.stringify(Object.values(ENTITIES).map((e) => (this._hass.states[e] || {}).attributes));
+    const key =
+      this._loc +
+      JSON.stringify(Object.values(ENTITIES).map((e) => (this._hass.states[e] || {}).attributes)) +
+      JSON.stringify(Object.keys(LABELS).map((l) => this._temp(l)));
     if (key === this._lastItems) return;
     this._lastItems = key;
 
     this.querySelector("#tabs").innerHTML = Object.keys(LABELS)
       .map((l) => {
         const n = ((this._hass.states[ENTITIES[l]] || {}).attributes || {}).items || [];
-        return `<button data-loc="${l}" class="${l === this._loc ? "active" : ""}">${LABELS[l]} (${n.length})</button>`;
+        const t = this._temp(l);
+        return `<button data-loc="${l}" class="${l === this._loc ? "active" : ""}">${LABELS[l]} (${n.length})${t ? ` - ${this._esc(t.text)}` : ""}</button>`;
       })
       .join("");
+    const cur = this._temp(this._loc);
+    this.querySelector("#temp").innerHTML = cur
+      ? `${LABELS[this._loc]} temperature: <b>${this._esc(cur.text)}</b>`
+      : "";
 
     const names = [...new Set(items.map((i) => i.name))];
     this.querySelector("#fi-names").innerHTML = names.map((n) => `<option value="${this._esc(n)}"></option>`).join("");
