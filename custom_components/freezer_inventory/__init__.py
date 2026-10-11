@@ -21,6 +21,7 @@ from .const import (
     ATTR_DATE_ADDED,
     ATTR_ID,
     ATTR_ITEMS,
+    ATTR_LOCATION,
     ATTR_NAME,
     ATTR_PACKAGE_SIZE,
     ATTR_QUANTITY,
@@ -28,6 +29,8 @@ from .const import (
     ATTR_UNITS,
     DOMAIN,
     EVENT_UPDATED,
+    LOCATION_FREEZER,
+    LOCATIONS,
     SERVICE_ADD_ITEM,
     SERVICE_CLEAR,
     SERVICE_REMOVE_ITEM,
@@ -42,9 +45,10 @@ PLATFORMS = ["sensor"]
 
 PANEL_URL_PATH = "freezer-inventory"
 PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
-PANEL_VERSION = "0.7.1"
+PANEL_VERSION = "0.8.0"
 PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
+LOCATION = vol.All(vol.Lower, vol.In(LOCATIONS))
 POSITIVE_FLOAT = vol.All(vol.Coerce(float), vol.Range(min=0, min_included=False))
 NON_NEGATIVE_FLOAT = vol.All(vol.Coerce(float), vol.Range(min=0))
 
@@ -56,6 +60,7 @@ ADD_SCHEMA = vol.Schema(
         ),
         vol.Optional(ATTR_PACKAGE_SIZE): POSITIVE_FLOAT,
         vol.Optional(ATTR_BEST_BEFORE): cv.date,
+        vol.Optional(ATTR_LOCATION, default=LOCATION_FREEZER): LOCATION,
     }
 )
 REMOVE_SCHEMA = vol.Schema(
@@ -63,6 +68,7 @@ REMOVE_SCHEMA = vol.Schema(
         vol.Optional(ATTR_ID): cv.string,
         vol.Required(ATTR_NAME): cv.string,
         vol.Optional(ATTR_QUANTITY): vol.All(vol.Coerce(int), vol.Range(min=1)),
+        vol.Optional(ATTR_LOCATION, default=LOCATION_FREEZER): LOCATION,
     }
 )
 SET_QUANTITY_SCHEMA = vol.Schema(
@@ -70,6 +76,7 @@ SET_QUANTITY_SCHEMA = vol.Schema(
         vol.Optional(ATTR_ID): cv.string,
         vol.Required(ATTR_NAME): cv.string,
         vol.Required(ATTR_QUANTITY): vol.All(vol.Coerce(int), vol.Range(min=0)),
+        vol.Optional(ATTR_LOCATION, default=LOCATION_FREEZER): LOCATION,
     }
 )
 SET_UNITS_SCHEMA = vol.Schema(
@@ -77,6 +84,7 @@ SET_UNITS_SCHEMA = vol.Schema(
         vol.Optional(ATTR_ID): cv.string,
         vol.Required(ATTR_NAME): cv.string,
         vol.Required(ATTR_UNITS): NON_NEGATIVE_FLOAT,
+        vol.Optional(ATTR_LOCATION, default=LOCATION_FREEZER): LOCATION,
     }
 )
 USE_AMOUNT_SCHEMA = vol.Schema(
@@ -84,8 +92,10 @@ USE_AMOUNT_SCHEMA = vol.Schema(
         vol.Optional(ATTR_ID): cv.string,
         vol.Required(ATTR_NAME): cv.string,
         vol.Required(ATTR_AMOUNT): POSITIVE_FLOAT,
+        vol.Optional(ATTR_LOCATION, default=LOCATION_FREEZER): LOCATION,
     }
 )
+CLEAR_SCHEMA = vol.Schema({vol.Optional(ATTR_LOCATION): LOCATION})
 
 
 def _sort_key(item: dict[str, Any]) -> tuple[bool, str]:
@@ -95,7 +105,7 @@ def _sort_key(item: dict[str, Any]) -> tuple[bool, str]:
 
 
 class FreezerInventory:
-    """Persistent freezer inventory.
+    """Persistent freezer and fridge inventory.
 
     Every entry is one batch: a name, a number of packages, an optional package
     size, and an optional best-before date. The same name can have several
@@ -118,6 +128,7 @@ class FreezerInventory:
             item.setdefault(ATTR_PACKAGE_SIZE, None)
             item.setdefault(ATTR_REMAINING, None)
             item.setdefault(ATTR_BEST_BEFORE, None)
+            item.setdefault(ATTR_LOCATION, LOCATION_FREEZER)
             item.pop("unit", None)
 
     @callback
@@ -126,17 +137,26 @@ class FreezerInventory:
         self._store.async_delay_save(lambda: {ATTR_ITEMS: self.items}, 1)
         self.hass.bus.async_fire(EVENT_UPDATED)
 
-    def _matches(self, name: str, item_id: str | None = None) -> list[dict[str, Any]]:
+    def _matches(
+        self, name: str, item_id: str | None = None, location: str = LOCATION_FREEZER
+    ) -> list[dict[str, Any]]:
         """Return the entries for an id or name, oldest best-before first."""
         if item_id:
             return [i for i in self.items if i[ATTR_ID] == item_id]
         key = name.strip().casefold()
         return sorted(
-            (i for i in self.items if i[ATTR_NAME].casefold() == key), key=_sort_key
+            (
+                i
+                for i in self.items
+                if i[ATTR_NAME].casefold() == key and i[ATTR_LOCATION] == location
+            ),
+            key=_sort_key,
         )
 
-    def _find(self, name: str, item_id: str | None = None) -> dict[str, Any] | None:
-        matches = self._matches(name, item_id)
+    def _find(
+        self, name: str, item_id: str | None = None, location: str = LOCATION_FREEZER
+    ) -> dict[str, Any] | None:
+        matches = self._matches(name, item_id, location)
         return matches[0] if matches else None
 
     @callback
@@ -146,11 +166,12 @@ class FreezerInventory:
         quantity: int = 1,
         best_before: str | None = None,
         package_size: float | None = None,
+        location: str = LOCATION_FREEZER,
     ) -> None:
         """Add packages. A different best-before date creates a separate batch."""
         candidates = [
             i
-            for i in self._matches(name)
+            for i in self._matches(name, None, location)
             if package_size is None or i.get(ATTR_PACKAGE_SIZE) == package_size
         ]
         if best_before:
@@ -168,6 +189,7 @@ class FreezerInventory:
                 ATTR_REMAINING: package_size,
                 ATTR_DATE_ADDED: dt_util.now().date().isoformat(),
                 ATTR_BEST_BEFORE: best_before,
+                ATTR_LOCATION: location,
             }
             self.items.append(item)
         item[ATTR_QUANTITY] += quantity
@@ -177,10 +199,14 @@ class FreezerInventory:
 
     @callback
     def async_remove(
-        self, name: str, quantity: int | None = None, item_id: str | None = None
+        self,
+        name: str,
+        quantity: int | None = None,
+        item_id: str | None = None,
+        location: str = LOCATION_FREEZER,
     ) -> None:
         """Remove (part of) an entry."""
-        item = self._find(name, item_id)
+        item = self._find(name, item_id, location)
         if item is None:
             return
         if quantity is None or quantity >= item[ATTR_QUANTITY]:
@@ -191,10 +217,14 @@ class FreezerInventory:
 
     @callback
     def async_set_quantity(
-        self, name: str, quantity: int, item_id: str | None = None
+        self,
+        name: str,
+        quantity: int,
+        item_id: str | None = None,
+        location: str = LOCATION_FREEZER,
     ) -> None:
         """Set the number of packages (0 removes the entry)."""
-        item = self._find(name, item_id)
+        item = self._find(name, item_id, location)
         if item is None:
             return
         if quantity <= 0:
@@ -205,10 +235,14 @@ class FreezerInventory:
 
     @callback
     def async_set_units(
-        self, name: str, units: float, item_id: str | None = None
+        self,
+        name: str,
+        units: float,
+        item_id: str | None = None,
+        location: str = LOCATION_FREEZER,
     ) -> None:
         """Set the total units; packages are recalculated (last one may be partial)."""
-        item = self._find(name, item_id)
+        item = self._find(name, item_id, location)
         if item is None or not item.get(ATTR_PACKAGE_SIZE):
             return
         size = item[ATTR_PACKAGE_SIZE]
@@ -222,14 +256,18 @@ class FreezerInventory:
 
     @callback
     def async_use_amount(
-        self, name: str, amount: float, item_id: str | None = None
+        self,
+        name: str,
+        amount: float,
+        item_id: str | None = None,
+        location: str = LOCATION_FREEZER,
     ) -> None:
         """Use part of the contents; opens the next package when one is used up.
 
         Without an id, the oldest best-before batch is used first.
         """
         changed = False
-        for item in self._matches(name, item_id):
+        for item in list(self._matches(name, item_id, location)):
             if amount <= 1e-9:
                 break
             size = item.get(ATTR_PACKAGE_SIZE)
@@ -255,9 +293,11 @@ class FreezerInventory:
             self._changed()
 
     @callback
-    def async_clear(self) -> None:
-        """Remove all items."""
-        self.items = []
+    def async_clear(self, location: str | None = None) -> None:
+        """Remove all items, or only those in one location."""
+        self.items = (
+            [i for i in self.items if i[ATTR_LOCATION] != location] if location else []
+        )
         self._changed()
 
 
@@ -274,30 +314,43 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             call.data[ATTR_QUANTITY],
             best_before.isoformat() if best_before else None,
             call.data.get(ATTR_PACKAGE_SIZE),
+            call.data[ATTR_LOCATION],
         )
 
     async def remove_item(call: ServiceCall) -> None:
         inventory.async_remove(
-            call.data[ATTR_NAME], call.data.get(ATTR_QUANTITY), call.data.get(ATTR_ID)
+            call.data[ATTR_NAME],
+            call.data.get(ATTR_QUANTITY),
+            call.data.get(ATTR_ID),
+            call.data[ATTR_LOCATION],
         )
 
     async def set_quantity(call: ServiceCall) -> None:
         inventory.async_set_quantity(
-            call.data[ATTR_NAME], call.data[ATTR_QUANTITY], call.data.get(ATTR_ID)
+            call.data[ATTR_NAME],
+            call.data[ATTR_QUANTITY],
+            call.data.get(ATTR_ID),
+            call.data[ATTR_LOCATION],
         )
 
     async def set_units(call: ServiceCall) -> None:
         inventory.async_set_units(
-            call.data[ATTR_NAME], call.data[ATTR_UNITS], call.data.get(ATTR_ID)
+            call.data[ATTR_NAME],
+            call.data[ATTR_UNITS],
+            call.data.get(ATTR_ID),
+            call.data[ATTR_LOCATION],
         )
 
     async def use_amount(call: ServiceCall) -> None:
         inventory.async_use_amount(
-            call.data[ATTR_NAME], call.data[ATTR_AMOUNT], call.data.get(ATTR_ID)
+            call.data[ATTR_NAME],
+            call.data[ATTR_AMOUNT],
+            call.data.get(ATTR_ID),
+            call.data[ATTR_LOCATION],
         )
 
     async def clear(call: ServiceCall) -> None:
-        inventory.async_clear()
+        inventory.async_clear(call.data.get(ATTR_LOCATION))
 
     hass.services.async_register(DOMAIN, SERVICE_ADD_ITEM, add_item, ADD_SCHEMA)
     hass.services.async_register(
@@ -312,7 +365,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(
         DOMAIN, SERVICE_USE_AMOUNT, use_amount, USE_AMOUNT_SCHEMA
     )
-    hass.services.async_register(DOMAIN, SERVICE_CLEAR, clear)
+    hass.services.async_register(DOMAIN, SERVICE_CLEAR, clear, CLEAR_SCHEMA)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await _async_register_panel(hass)
@@ -333,7 +386,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         webcomponent_name="freezer-inventory-panel",
         frontend_url_path=PANEL_URL_PATH,
         module_url=f"{PANEL_STATIC_URL}?v={PANEL_VERSION}",
-        sidebar_title="Freezer",
+        sidebar_title="Freezer & Fridge",
         sidebar_icon="mdi:fridge-industrial-outline",
         require_admin=False,
     )

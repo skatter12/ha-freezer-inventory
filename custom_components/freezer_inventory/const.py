@@ -22,5 +22,10 @@ ATTR_UNITS = "units"
 ATTR_DATE_ADDED = "date_added"
 ATTR_BEST_BEFORE = "best_before"
 ATTR_ITEMS = "items"
+ATTR_LOCATION = "location"
+
+LOCATION_FREEZER = "freezer"
+LOCATION_FRIDGE = "fridge"
+LOCATIONS = [LOCATION_FREEZER, LOCATION_FRIDGE]
 
 EVENT_UPDATED = f"{DOMAIN}_updated"

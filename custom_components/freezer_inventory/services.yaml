@@ -2,6 +2,15 @@ add_item:
   name: Add item
   description: Add packages of an item. The same name with a different best-before date is stored as a separate batch.
   fields:
+    location:
+      name: Location
+      description: Freezer or fridge.
+      default: freezer
+      selector:
+        select:
+          options:
+            - freezer
+            - fridge
     name:
       name: Name
       description: Name of the item.
@@ -37,6 +46,15 @@ remove_item:
   name: Remove item
   description: Remove packages of an item.
   fields:
+    location:
+      name: Location
+      description: Freezer or fridge.
+      default: freezer
+      selector:
+        select:
+          options:
+            - freezer
+            - fridge
     name:
       name: Name
       description: Name of the item.
@@ -61,6 +79,15 @@ set_quantity:
   name: Set quantity
   description: Set the number of packages of a batch (0 removes it).
   fields:
+    location:
+      name: Location
+      description: Freezer or fridge.
+      default: freezer
+      selector:
+        select:
+          options:
+            - freezer
+            - fridge
     name:
       name: Name
       description: Name of the item.
@@ -86,6 +113,15 @@ set_units:
   name: Set units
   description: Set the total units of a batch with a package size. Packages are recalculated, the last one may be partly full.
   fields:
+    location:
+      name: Location
+      description: Freezer or fridge.
+      default: freezer
+      selector:
+        select:
+          options:
+            - freezer
+            - fridge
     name:
       name: Name
       description: Name of the item.
@@ -113,6 +149,15 @@ use_amount:
   name: Use amount
   description: Use part of an item's contents without removing a whole package. When the open package is used up, the next one is opened. Without a batch id, the oldest best-before batch is used first.
   fields:
+    location:
+      name: Location
+      description: Freezer or fridge.
+      default: freezer
+      selector:
+        select:
+          options:
+            - freezer
+            - fridge
     name:
       name: Name
       description: Name of the item (must have a package size).
@@ -139,3 +184,13 @@ use_amount:
 clear:
   name: Clear
   description: Remove everything from the freezer inventory.
+  fields:
+    location:
+      name: Location
+      description: Freezer or fridge.
+      default: freezer
+      selector:
+        select:
+          options:
+            - freezer
+            - fridge

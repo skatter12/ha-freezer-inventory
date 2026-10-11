@@ -1,4 +1,5 @@
-const ENTITY_ID = "sensor.freezer_items";
+const ENTITIES = { freezer: "sensor.freezer_items", fridge: "sensor.fridge_items" };
+const LABELS = { freezer: "Freezer", fridge: "Fridge" };
 
 class FreezerInventoryPanel extends HTMLElement {
   constructor() {
@@ -21,6 +22,7 @@ class FreezerInventoryPanel extends HTMLElement {
   _build() {
     this._built = true;
     this._open = this._open || new Set();
+    this._loc = localStorage.getItem("freezer_inventory_location") === "fridge" ? "fridge" : "freezer";
     const formats = ["YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY", "DD.MM.YYYY", "DD-MM-YYYY", "YYYY/MM/DD", "YYYY.MM.DD", "D MMM YYYY", "MMM D, YYYY"];
     this._dateFormat = localStorage.getItem("freezer_inventory_date_format") || "YYYY-MM-DD";
     if (!formats.includes(this._dateFormat)) this._dateFormat = "YYYY-MM-DD";
@@ -62,6 +64,11 @@ class FreezerInventoryPanel extends HTMLElement {
         .fi-gtitle .fi-meta { flex: 1; }
         .fi-addrow { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
         .fi-addrow input { width: 130px; }
+        .fi-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+        .fi-wrap .fi-tabs button { flex: 1; padding: 10px; font-size: 16px; border-radius: 10px;
+          background: var(--secondary-background-color, #eee); color: var(--primary-text-color);
+          border: 1px solid var(--divider-color, #ccc); }
+        .fi-wrap .fi-tabs button.active { background: var(--primary-color); color: var(--text-primary-color, #fff); }
         .fi-box { border: 1px solid var(--divider-color, #ccc); border-radius: 16px; padding: 12px 16px;
           margin-bottom: 14px; background: var(--secondary-background-color, #f7f7f7); }
         .fi-box .fi-gtitle { margin-top: 0; font-size: 17px; }
@@ -77,7 +84,8 @@ class FreezerInventoryPanel extends HTMLElement {
         @media (max-width: 600px) { .fi-wrap form { grid-template-columns: 1fr 1fr; } }
       </style>
       <div class="fi-wrap">
-        <h1>Freezer Inventory</h1>
+        <h1>Inventory</h1>
+        <div class="fi-tabs" id="tabs"></div>
         <div class="fi-card">
           <form id="add">
             <label>Name<input name="name" required list="fi-names" autocomplete="off" placeholder="e.g. Minced beef" /></label>
@@ -123,6 +131,16 @@ class FreezerInventoryPanel extends HTMLElement {
       this._renderList();
     });
 
+    this.querySelector("#tabs").addEventListener("click", (ev) => {
+      const btn = ev.target.closest("button[data-loc]");
+      if (!btn || btn.dataset.loc === this._loc) return;
+      this._loc = btn.dataset.loc;
+      localStorage.setItem("freezer_inventory_location", this._loc);
+      this._open = new Set();
+      this._lastItems = null;
+      this._renderList();
+    });
+
     const fmtSel = this.querySelector("#datefmt");
     fmtSel.innerHTML = formats
       .map((f) => `<option value="${f}"${f === this._dateFormat ? " selected" : ""}>${f}</option>`)
@@ -135,7 +153,7 @@ class FreezerInventoryPanel extends HTMLElement {
     });
 
     this.querySelector("#clear").addEventListener("click", () => {
-      if (confirm("Remove everything from the freezer inventory?")) {
+      if (confirm(`Remove everything from the ${LABELS[this._loc].toLowerCase()}?`)) {
         this._call("clear", {});
       }
     });
@@ -196,7 +214,7 @@ class FreezerInventoryPanel extends HTMLElement {
 
   async _call(service, data) {
     try {
-      await this._hass.callService("freezer_inventory", service, data);
+      await this._hass.callService("freezer_inventory", service, { ...data, location: this._loc });
     } catch (err) {
       alert(`Freezer Inventory: ${err.message || err}`);
     }
@@ -214,7 +232,7 @@ class FreezerInventoryPanel extends HTMLElement {
   }
 
   _items() {
-    const stateObj = this._hass.states[ENTITY_ID];
+    const stateObj = this._hass.states[ENTITIES[this._loc]];
     return (stateObj && stateObj.attributes.items) || [];
   }
 
@@ -296,11 +314,18 @@ class FreezerInventoryPanel extends HTMLElement {
   }
 
   _renderList() {
-    const stateObj = this._hass.states[ENTITY_ID];
+    const stateObj = this._hass.states[ENTITIES[this._loc]];
     const items = this._items();
-    const key = JSON.stringify(items);
+    const key = this._loc + JSON.stringify(Object.values(ENTITIES).map((e) => (this._hass.states[e] || {}).attributes));
     if (key === this._lastItems) return;
     this._lastItems = key;
+
+    this.querySelector("#tabs").innerHTML = Object.keys(LABELS)
+      .map((l) => {
+        const n = ((this._hass.states[ENTITIES[l]] || {}).attributes || {}).items || [];
+        return `<button data-loc="${l}" class="${l === this._loc ? "active" : ""}">${LABELS[l]} (${n.length})</button>`;
+      })
+      .join("");
 
     const names = [...new Set(items.map((i) => i.name))];
     this.querySelector("#fi-names").innerHTML = names.map((n) => `<option value="${this._esc(n)}"></option>`).join("");
@@ -316,7 +341,7 @@ class FreezerInventoryPanel extends HTMLElement {
 
     this.querySelector("#summary").textContent = stateObj
       ? `${names.length} items in ${items.length} batches`
-      : `Entity ${ENTITY_ID} not found. Is the integration set up?`;
+      : `Entity ${ENTITIES[this._loc]} not found. Is the integration set up?`;
 
     this.querySelector("#list").innerHTML = shown.length
       ? shown
@@ -356,7 +381,7 @@ class FreezerInventoryPanel extends HTMLElement {
         </div>`;
           })
           .join("") + "</div>"
-      : `<div class="fi-empty">${items.length ? "No matches." : "The freezer is empty."}</div>`;
+      : `<div class="fi-empty">${items.length ? "No matches." : `The ${this._loc} is empty.`}</div>`;
   }
 }
 

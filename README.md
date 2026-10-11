@@ -2,7 +2,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/skatter12/ha-freezer-inventory)](https://github.com/skatter12/ha-freezer-inventory/releases/latest)
 
-**Current version: 0.7.1**
+**Current version: 0.8.0**
 
 A Home Assistant integration that keeps track of what you have in your freezer.
 
@@ -35,7 +35,8 @@ Adding an item that already exists adds to it. If you give a **different best-be
 
 ## Automations and services
 
-- `sensor.freezer_items` shows the total number of packages; every batch is listed in its `items` attribute (with an `id`).
+- `sensor.freezer_items` and `sensor.fridge_items` show the total number of packages; every batch is listed in their `items` attribute (with an `id`).
+- All services take an optional `location` (`freezer` or `fridge`, default `freezer`). `clear` without a location clears both.
 - Services (all take an optional batch `id`; without it the batch with the oldest best-before date is used):
   - `freezer_inventory.add_item` - `name`, optional `quantity`, `package_size`, `best_before`.
   - `freezer_inventory.remove_item` - `name`, optional `quantity` (omit to remove the whole batch).
@@ -57,6 +58,7 @@ data:
 
 ## Changelog
 
+- **0.8.0** - Freezer and Fridge tabs with identical features; a `location` option on all services and a new `sensor.fridge_items`. Existing items stay in the freezer.
 - **0.7.1** - Fixed README encoding so HACS shows it.
 - **0.7.0** - Selectable date format (saved per browser), each item in its own rounded box, earliest best-before date first and shown as a prominent badge.
 - **0.6.0** - Items are grouped by name with a total and "N dates" label; each item has an **Add** button for adding quantity, per package and a new best-before date.
