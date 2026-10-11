@@ -24,6 +24,7 @@ from .const import (
     EVENT_UPDATED,
     SERVICE_ADD_ITEM,
     SERVICE_CLEAR,
+    SERVICE_SET_QUANTITY,
     SERVICE_REMOVE_ITEM,
     STORAGE_KEY,
     STORAGE_VERSION,
@@ -33,6 +34,7 @@ PLATFORMS = ["sensor"]
 
 PANEL_URL_PATH = "freezer-inventory"
 PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
+PANEL_VERSION = "0.2.1"
 PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
 ADD_SCHEMA = vol.Schema(
@@ -45,7 +47,13 @@ ADD_SCHEMA = vol.Schema(
         vol.Optional(ATTR_BEST_BEFORE): cv.date,
     }
 )
-REMOVE_SCHEMA = vol.Schema(
+SET_QUANTITY_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_NAME): cv.string,
+        vol.Required(ATTR_QUANTITY): vol.All(vol.Coerce(int), vol.Range(min=0)),
+    }
+)
+
     {
         vol.Required(ATTR_NAME): cv.string,
         vol.Optional(ATTR_QUANTITY): vol.All(vol.Coerce(int), vol.Range(min=1)),
@@ -115,6 +123,18 @@ class FreezerInventory:
         self._changed()
 
     @callback
+    def async_set_quantity(self, name: str, quantity: int) -> None:
+        """Set the quantity of an existing item (0 removes it)."""
+        item = self._find(name)
+        if item is None:
+            return
+        if quantity <= 0:
+            self.items.remove(item)
+        else:
+            item[ATTR_QUANTITY] = quantity
+        self._changed()
+
+    @callback
     def async_clear(self) -> None:
         """Remove all items."""
         self.items = []
@@ -139,6 +159,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def remove_item(call: ServiceCall) -> None:
         inventory.async_remove(call.data[ATTR_NAME], call.data.get(ATTR_QUANTITY))
 
+    async def set_quantity(call: ServiceCall) -> None:
+        inventory.async_set_quantity(call.data[ATTR_NAME], call.data[ATTR_QUANTITY])
+
     async def clear(call: ServiceCall) -> None:
         inventory.async_clear()
 
@@ -147,6 +170,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DOMAIN, SERVICE_REMOVE_ITEM, remove_item, REMOVE_SCHEMA
     )
     hass.services.async_register(DOMAIN, SERVICE_CLEAR, clear)
+    hass.services.async_register(
+        DOMAIN, SERVICE_SET_QUANTITY, set_quantity, SET_QUANTITY_SCHEMA
+    )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await _async_register_panel(hass)
@@ -166,7 +192,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         hass,
         webcomponent_name="freezer-inventory-panel",
         frontend_url_path=PANEL_URL_PATH,
-        module_url=PANEL_STATIC_URL,
+        module_url=f"{PANEL_STATIC_URL}?v={PANEL_VERSION}",
         sidebar_title="Freezer",
         sidebar_icon="mdi:fridge-industrial-outline",
         require_admin=False,
@@ -177,7 +203,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
-    for service in (SERVICE_ADD_ITEM, SERVICE_REMOVE_ITEM, SERVICE_CLEAR):
+    for service in (
+        SERVICE_ADD_ITEM,
+        SERVICE_REMOVE_ITEM,
+        SERVICE_SET_QUANTITY,
+        SERVICE_CLEAR,
+    ):
         hass.services.async_remove(DOMAIN, service)
     frontend.async_remove_panel(hass, PANEL_URL_PATH)
     hass.data.pop(DOMAIN)

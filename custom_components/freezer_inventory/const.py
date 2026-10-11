@@ -8,6 +8,7 @@ STORAGE_VERSION = 1
 SERVICE_ADD_ITEM = "add_item"
 SERVICE_REMOVE_ITEM = "remove_item"
 SERVICE_CLEAR = "clear"
+SERVICE_SET_QUANTITY = "set_quantity"
 
 ATTR_NAME = "name"
 ATTR_QUANTITY = "quantity"

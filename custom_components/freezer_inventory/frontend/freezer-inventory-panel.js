@@ -48,7 +48,7 @@ class FreezerInventoryPanel extends HTMLElement {
         .fi-meta { font-size: 12px; color: var(--secondary-text-color); }
         .fi-expired { color: var(--error-color, #db4437); font-weight: 500; }
         .fi-soon { color: var(--warning-color, #f4a100); font-weight: 500; }
-        .fi-qty { min-width: 70px; text-align: center; font-size: 16px; }
+        .fi-wrap input.fi-qty { width: 70px; text-align: center; font-size: 16px; }
         .fi-empty { text-align: center; color: var(--secondary-text-color); padding: 24px 0; }
         @media (max-width: 600px) { .fi-wrap form { grid-template-columns: 1fr 1fr; } }
       </style>
@@ -104,14 +104,35 @@ class FreezerInventoryPanel extends HTMLElement {
       const btn = ev.target.closest("button[data-action]");
       if (!btn) return;
       const name = btn.dataset.name;
+      const qty = parseInt(btn.dataset.qty, 10) || 0;
       if (btn.dataset.action === "inc") {
-        this._hass.callService("freezer_inventory", "add_item", { name, quantity: 1 });
+        this._call("set_quantity", { name, quantity: qty + 1 });
       } else if (btn.dataset.action === "dec") {
-        this._hass.callService("freezer_inventory", "remove_item", { name, quantity: 1 });
+        this._call("set_quantity", { name, quantity: Math.max(1, qty - 1) });
       } else if (btn.dataset.action === "del") {
-        this._hass.callService("freezer_inventory", "remove_item", { name });
+        this._call("remove_item", { name });
       }
     });
+
+    this.querySelector("#list").addEventListener("change", (ev) => {
+      const input = ev.target.closest("input[data-action='set']");
+      if (!input) return;
+      const quantity = parseInt(input.value, 10);
+      if (Number.isNaN(quantity) || quantity < 0) {
+        this._lastItems = null;
+        this._renderList();
+        return;
+      }
+      this._call("set_quantity", { name: input.dataset.name, quantity });
+    });
+  }
+
+  async _call(service, data) {
+    try {
+      await this._hass.callService("freezer_inventory", service, data);
+    } catch (err) {
+      alert(`Freezer Inventory: ${err.message || err}`);
+    }
   }
 
   _esc(value) {
@@ -153,9 +174,10 @@ class FreezerInventoryPanel extends HTMLElement {
             <div class="fi-name">${this._esc(i.name)}</div>
             <div class="fi-meta">Added ${this._esc(i.date_added)} ${this._expiry(i.best_before)}</div>
           </div>
-          <button class="secondary" data-action="dec" data-name="${this._esc(i.name)}">−</button>
-          <div class="fi-qty">${i.quantity}${i.unit ? " " + this._esc(i.unit) : ""}</div>
-          <button class="secondary" data-action="inc" data-name="${this._esc(i.name)}">+</button>
+          <button class="secondary" data-action="dec" data-name="${this._esc(i.name)}" data-qty="${i.quantity}">−</button>
+          <input class="fi-qty" type="number" min="0" value="${i.quantity}" data-action="set" data-name="${this._esc(i.name)}" />
+          <span>${i.unit ? this._esc(i.unit) : ""}</span>
+          <button class="secondary" data-action="inc" data-name="${this._esc(i.name)}" data-qty="${i.quantity}">+</button>
           <button class="danger" data-action="del" data-name="${this._esc(i.name)}">Delete</button>
         </div>`
           )

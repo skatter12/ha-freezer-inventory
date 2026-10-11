@@ -7,5 +7,5 @@
   "documentation": "https://github.com/skatter12/ha-freezer-inventory",
   "issue_tracker": "https://github.com/skatter12/ha-freezer-inventory/issues",
   "iot_class": "local_push",
-  "version": "0.2.0"
+  "version": "0.2.1"
 }
