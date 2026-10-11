@@ -21,6 +21,9 @@ class FreezerInventoryPanel extends HTMLElement {
   _build() {
     this._built = true;
     this._open = this._open || new Set();
+    const formats = ["YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY", "DD.MM.YYYY", "DD-MM-YYYY", "YYYY/MM/DD", "YYYY.MM.DD", "D MMM YYYY", "MMM D, YYYY"];
+    this._dateFormat = localStorage.getItem("freezer_inventory_date_format") || "YYYY-MM-DD";
+    if (!formats.includes(this._dateFormat)) this._dateFormat = "YYYY-MM-DD";
     this.innerHTML = `
       <style>
         freezer-inventory-panel { display: block; }
@@ -59,6 +62,17 @@ class FreezerInventoryPanel extends HTMLElement {
         .fi-gtitle .fi-meta { flex: 1; }
         .fi-addrow { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
         .fi-addrow input { width: 130px; }
+        .fi-box { border: 1px solid var(--divider-color, #ccc); border-radius: 16px; padding: 12px 16px;
+          margin-bottom: 14px; background: var(--secondary-background-color, #f7f7f7); }
+        .fi-box .fi-gtitle { margin-top: 0; font-size: 17px; }
+        .fi-box .fi-item:last-child { border-bottom: 0; }
+        .fi-date { display: inline-block; font-size: 15px; font-weight: 600; padding: 2px 10px; border-radius: 10px;
+          background: var(--primary-color); color: var(--text-primary-color, #fff); }
+        .fi-date.fi-d-soon { background: var(--warning-color, #f4a100); }
+        .fi-date.fi-d-expired { background: var(--error-color, #db4437); }
+        .fi-name { font-size: 11px; text-transform: uppercase; color: var(--secondary-text-color); }
+        .fi-wrap select { padding: 8px; border-radius: 6px; border: 1px solid var(--divider-color, #ccc);
+          background: var(--secondary-background-color, #fff); color: var(--primary-text-color); }
         .fi-empty { text-align: center; color: var(--secondary-text-color); padding: 24px 0; }
         @media (max-width: 600px) { .fi-wrap form { grid-template-columns: 1fr 1fr; } }
       </style>
@@ -78,6 +92,7 @@ class FreezerInventoryPanel extends HTMLElement {
         <div class="fi-card">
           <div class="fi-toolbar">
             <input id="search" type="search" placeholder="Search items..." />
+            <select id="datefmt" title="Date format"></select>
             <button id="clear" class="danger" type="button">Clear all</button>
           </div>
           <div class="fi-summary" id="summary"></div>
@@ -104,6 +119,17 @@ class FreezerInventoryPanel extends HTMLElement {
 
     this.querySelector("#search").addEventListener("input", (ev) => {
       this._filter = ev.target.value.trim().toLowerCase();
+      this._lastItems = null;
+      this._renderList();
+    });
+
+    const fmtSel = this.querySelector("#datefmt");
+    fmtSel.innerHTML = formats
+      .map((f) => `<option value="${f}"${f === this._dateFormat ? " selected" : ""}>${f}</option>`)
+      .join("");
+    fmtSel.addEventListener("change", () => {
+      this._dateFormat = fmtSel.value;
+      localStorage.setItem("freezer_inventory_date_format", this._dateFormat);
       this._lastItems = null;
       this._renderList();
     });
@@ -197,7 +223,7 @@ class FreezerInventoryPanel extends HTMLElement {
     const existing = this._items().filter((i) => i.name.toLowerCase() === name);
     this.querySelector("#hint").textContent = existing.length
       ? `Already in the freezer: ${existing
-          .map((i) => `${i.quantity} pkg${i.best_before ? ` (best before ${i.best_before})` : ""}`)
+          .map((i) => `${i.quantity} pkg${i.best_before ? ` (best before ${this._fmtDate(i.best_before)})` : ""}`)
           .join(", ")}. Same date (or no date) adds to that batch; a new date creates a new batch.`
       : "";
   }
@@ -208,12 +234,31 @@ class FreezerInventoryPanel extends HTMLElement {
     return el.innerHTML.replace(/"/g, "&quot;");
   }
 
+  _fmtDate(iso) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || "");
+    if (!m) return iso || "";
+    const [, y, mo, d] = m;
+    const mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][+mo - 1];
+    switch (this._dateFormat) {
+      case "DD/MM/YYYY": return `${d}/${mo}/${y}`;
+      case "MM/DD/YYYY": return `${mo}/${d}/${y}`;
+      case "DD.MM.YYYY": return `${d}.${mo}.${y}`;
+      case "DD-MM-YYYY": return `${d}-${mo}-${y}`;
+      case "YYYY/MM/DD": return `${y}/${mo}/${d}`;
+      case "YYYY.MM.DD": return `${y}.${mo}.${d}`;
+      case "D MMM YYYY": return `${+d} ${mon} ${y}`;
+      case "MMM D, YYYY": return `${mon} ${+d}, ${y}`;
+      default: return iso;
+    }
+  }
+
   _expiry(bestBefore) {
-    if (!bestBefore) return "";
+    if (!bestBefore) return `<span class="fi-date">No date</span>`;
     const days = Math.floor((new Date(bestBefore) - new Date().setHours(0, 0, 0, 0)) / 86400000);
-    if (days < 0) return `<span class="fi-expired">Expired ${this._esc(bestBefore)}</span>`;
-    if (days <= 30) return `<span class="fi-soon">Best before ${this._esc(bestBefore)} (${days}d)</span>`;
-    return `Best before ${this._esc(bestBefore)}`;
+    const f = this._esc(this._fmtDate(bestBefore));
+    if (days < 0) return `<span class="fi-date fi-d-expired">Expired ${f}</span>`;
+    if (days <= 30) return `<span class="fi-date fi-d-soon">Best before ${f} (${days}d)</span>`;
+    return `<span class="fi-date">Best before ${f}</span>`;
   }
 
   _totalUnits(i) {
@@ -276,13 +321,15 @@ class FreezerInventoryPanel extends HTMLElement {
     this.querySelector("#list").innerHTML = shown.length
       ? shown
           .map((i, idx) => {
-            const head = idx === 0 || shown[idx - 1].name !== i.name ? this._groupHead(i.name, items) : "";
+            const isNew = idx === 0 || shown[idx - 1].name !== i.name;
+            const head = isNew ? `${idx > 0 ? "</div>" : ""}<div class="fi-box">${this._groupHead(i.name, items)}` : "";
             const ref = `data-name="${this._esc(i.name)}" data-id="${this._esc(i.id)}"`;
             return `${head}
         <div class="fi-item">
           <div class="fi-info">
-            <div class="fi-name">${this._esc(i.name)}</div>
-            <div class="fi-meta">Added ${this._esc(i.date_added)} ${this._expiry(i.best_before)}</div>
+            <div class="fi-name">Batch</div>
+            <div class="fi-meta">${this._expiry(i.best_before)}</div>
+            <div class="fi-meta">Added ${this._esc(this._fmtDate(i.date_added))}</div>
             ${
               i.package_size
                 ? `<div class="fi-meta">${this._breakdown(i)}</div>
@@ -308,7 +355,7 @@ class FreezerInventoryPanel extends HTMLElement {
           <button class="danger" data-action="del" ${ref}>Delete</button>
         </div>`;
           })
-          .join("")
+          .join("") + "</div>"
       : `<div class="fi-empty">${items.length ? "No matches." : "The freezer is empty."}</div>`;
   }
 }
