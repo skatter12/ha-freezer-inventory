@@ -26,9 +26,6 @@ class FreezerInventoryPanel extends HTMLElement {
     this._open = this._open || new Set();
     this._minOpen = this._minOpen || new Set();
     this._loc = localStorage.getItem("freezer_inventory_location") || "freezer";
-    const formats = ["YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY", "DD.MM.YYYY", "DD-MM-YYYY", "YYYY/MM/DD", "YYYY.MM.DD", "D MMM YYYY", "MMM D, YYYY"];
-    this._dateFormat = localStorage.getItem("freezer_inventory_date_format") || "YYYY-MM-DD";
-    if (!formats.includes(this._dateFormat)) this._dateFormat = "YYYY-MM-DD";
     this.innerHTML = `
       <style>
         freezer-inventory-panel { display: block; }
@@ -107,7 +104,6 @@ class FreezerInventoryPanel extends HTMLElement {
         <div class="fi-card">
           <div class="fi-toolbar">
             <input id="search" type="search" placeholder="Search items..." />
-            <select id="datefmt" title="Date format"></select>
             <button id="clear" class="danger" type="button">Clear all</button>
           </div>
           <div class="fi-summary" id="summary"></div>
@@ -154,17 +150,6 @@ class FreezerInventoryPanel extends HTMLElement {
       localStorage.setItem("freezer_inventory_location", this._loc);
       this._open = new Set();
       this._minOpen = new Set();
-      this._lastItems = null;
-      this._renderList();
-    });
-
-    const fmtSel = this.querySelector("#datefmt");
-    fmtSel.innerHTML = formats
-      .map((f) => `<option value="${f}"${f === this._dateFormat ? " selected" : ""}>${f}</option>`)
-      .join("");
-    fmtSel.addEventListener("change", () => {
-      this._dateFormat = fmtSel.value;
-      localStorage.setItem("freezer_inventory_date_format", this._dateFormat);
       this._lastItems = null;
       this._renderList();
     });
@@ -341,7 +326,7 @@ class FreezerInventoryPanel extends HTMLElement {
     if (!m) return iso || "";
     const [, y, mo, d] = m;
     const mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][+mo - 1];
-    switch (this._dateFormat) {
+    switch (this._dateFormat()) {
       case "DD/MM/YYYY": return `${d}/${mo}/${y}`;
       case "MM/DD/YYYY": return `${mo}/${d}/${y}`;
       case "DD.MM.YYYY": return `${d}.${mo}.${y}`;
@@ -352,6 +337,11 @@ class FreezerInventoryPanel extends HTMLElement {
       case "MMM D, YYYY": return `${mon} ${+d}, ${y}`;
       default: return iso;
     }
+  }
+
+  _dateFormat() {
+    const base = this._hass.states["sensor.freezer_items"];
+    return (base && base.attributes.date_format) || "YYYY-MM-DD";
   }
 
   _expiry(bestBefore) {

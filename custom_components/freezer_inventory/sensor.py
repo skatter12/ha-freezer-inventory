@@ -121,6 +121,7 @@ class InventorySensor(SensorEntity):
         return {
             ATTR_ITEMS: [dict(item) for item in self._items()],
             "revision": self._inventory.revision,
+            "date_format": self._inventory.date_format,
             "temperature_entity": self._temperature_entity,
             "appliances": [
                 {"id": a["id"], "kind": a["kind"], "name": a["name"]}

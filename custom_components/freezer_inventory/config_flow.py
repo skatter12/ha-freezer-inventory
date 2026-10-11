@@ -14,7 +14,10 @@ from .const import (
     CONF_APPLIANCES,
     CONF_FREEZER_TEMP,
     CONF_FRIDGE_TEMP,
+    CONF_DATE_FORMAT,
     CONF_SHOP_ON_ADD,
+    DATE_FORMATS,
+    DEFAULT_DATE_FORMAT,
     DOMAIN,
     LOCATION_FREEZER,
     LOCATION_FRIDGE,
@@ -55,6 +58,16 @@ def _settings_schema(defaults: dict[str, Any]) -> vol.Schema:
     for key in (CONF_FREEZER_TEMP, CONF_FRIDGE_TEMP):
         marker, sel = _optional_entity(key, defaults.get(key))
         fields[marker] = sel
+    fields[
+        vol.Optional(
+            CONF_DATE_FORMAT,
+            default=defaults.get(CONF_DATE_FORMAT) or DEFAULT_DATE_FORMAT,
+        )
+    ] = selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=DATE_FORMATS, mode=selector.SelectSelectorMode.DROPDOWN
+        )
+    )
     fields[vol.Optional(CONF_SHOP_ON_ADD, default=bool(defaults.get(CONF_SHOP_ON_ADD, False)))] = bool
     return vol.Schema(fields)
 
@@ -134,6 +147,7 @@ class FreezerInventoryOptionsFlow(config_entries.OptionsFlow):
             changes = {
                 key: user_input.get(key) for key in (CONF_FREEZER_TEMP, CONF_FRIDGE_TEMP)
             }
+            changes[CONF_DATE_FORMAT] = user_input.get(CONF_DATE_FORMAT, DEFAULT_DATE_FORMAT)
             changes[CONF_SHOP_ON_ADD] = user_input.get(CONF_SHOP_ON_ADD, False)
             return self._save(self._appliances, **changes)
         return self.async_show_form(

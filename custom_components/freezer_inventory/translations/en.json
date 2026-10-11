@@ -7,7 +7,8 @@
         "data": {
           "freezer_temperature_entity": "Freezer temperature entity",
           "fridge_temperature_entity": "Fridge temperature entity",
-        "shopping_list_on_add": "Mark as bought on the shopping list when stock is added"
+        "date_format": "Date format",
+          "shopping_list_on_add": "Mark as bought on the shopping list when stock is added"
         }
       }
     },
@@ -30,7 +31,8 @@
         "data": {
           "freezer_temperature_entity": "Freezer temperature entity",
           "fridge_temperature_entity": "Fridge temperature entity",
-        "shopping_list_on_add": "Mark as bought on the shopping list when stock is added"
+        "date_format": "Date format",
+          "shopping_list_on_add": "Mark as bought on the shopping list when stock is added"
         }
       },
       "add_unit": {

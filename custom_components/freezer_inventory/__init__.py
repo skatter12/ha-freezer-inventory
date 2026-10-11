@@ -30,6 +30,8 @@ from .const import (
     ATTR_REMAINING,
     ATTR_UNITS,
     CONF_APPLIANCES,
+    CONF_DATE_FORMAT,
+    DEFAULT_DATE_FORMAT,
     CONF_SHOP_ON_ADD,
     DOMAIN,
     EVENT_UPDATED,
@@ -56,7 +58,7 @@ PLATFORMS = ["sensor"]
 
 PANEL_URL_PATH = "freezer-inventory"
 PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
-PANEL_VERSION = "1.4.0"
+PANEL_VERSION = "1.5.0"
 PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
 LOCATION = vol.All(vol.Lower, vol.In(LOCATIONS))
@@ -155,6 +157,7 @@ class FreezerInventory:
         self.revision = 0
         self.appliances: list[dict[str, Any]] = []
         self.shop_on_add = False
+        self.date_format = DEFAULT_DATE_FORMAT
         self._store: Store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
 
     async def async_load(self) -> None:
@@ -510,6 +513,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     conf = {**entry.data, **entry.options}
     inventory.appliances = list(conf.get(CONF_APPLIANCES) or [])
     inventory.shop_on_add = bool(conf.get(CONF_SHOP_ON_ADD))
+    inventory.date_format = conf.get(CONF_DATE_FORMAT) or DEFAULT_DATE_FORMAT
     await inventory.async_load()
     hass.data[DOMAIN] = inventory
 

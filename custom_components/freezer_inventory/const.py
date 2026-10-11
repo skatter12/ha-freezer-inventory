@@ -35,6 +35,9 @@ MIN_UNIT_OFF = "off"
 CONF_FREEZER_TEMP = "freezer_temperature_entity"
 CONF_FRIDGE_TEMP = "fridge_temperature_entity"
 CONF_APPLIANCES = "appliances"
+CONF_DATE_FORMAT = "date_format"
+DATE_FORMATS = ["YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY", "DD.MM.YYYY", "DD-MM-YYYY", "YYYY/MM/DD", "YYYY.MM.DD", "D MMM YYYY", "MMM D, YYYY"]
+DEFAULT_DATE_FORMAT = "YYYY-MM-DD"
 CONF_SHOP_ON_ADD = "shopping_list_on_add"
 
 LOCATION_FREEZER = "freezer"
