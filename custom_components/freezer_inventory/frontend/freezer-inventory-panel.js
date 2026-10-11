@@ -24,6 +24,7 @@ class FreezerInventoryPanel extends HTMLElement {
   _build() {
     this._built = true;
     this._open = this._open || new Set();
+    this._minOpen = this._minOpen || new Set();
     this._loc = localStorage.getItem("freezer_inventory_location") || "freezer";
     const formats = ["YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY", "DD.MM.YYYY", "DD-MM-YYYY", "YYYY/MM/DD", "YYYY.MM.DD", "D MMM YYYY", "MMM D, YYYY"];
     this._dateFormat = localStorage.getItem("freezer_inventory_date_format") || "YYYY-MM-DD";
@@ -129,6 +130,7 @@ class FreezerInventoryPanel extends HTMLElement {
         this._loc = target;
         localStorage.setItem("freezer_inventory_location", target);
         this._open = new Set();
+      this._minOpen = new Set();
       }
       this._lastItems = null;
       form.reset();
@@ -151,6 +153,7 @@ class FreezerInventoryPanel extends HTMLElement {
       this._loc = btn.dataset.loc;
       localStorage.setItem("freezer_inventory_location", this._loc);
       this._open = new Set();
+      this._minOpen = new Set();
       this._lastItems = null;
       this._renderList();
     });
@@ -179,6 +182,14 @@ class FreezerInventoryPanel extends HTMLElement {
         const nm = btn.dataset.name;
         if (this._open.has(nm)) this._open.delete(nm);
         else this._open.add(nm);
+        this._lastItems = null;
+        this._renderList();
+        return;
+      }
+      if (btn.dataset.action === "toggle-min") {
+        const nm = btn.dataset.name;
+        if (this._minOpen.has(nm)) this._minOpen.delete(nm);
+        else this._minOpen.add(nm);
         this._lastItems = null;
         this._renderList();
         return;
@@ -381,14 +392,15 @@ class FreezerInventoryPanel extends HTMLElement {
       <div class="fi-gtitle"><b>${n}</b>
         <span class="fi-meta">Total: ${pkgs} pkg${withSize.length ? ` / ${Math.round(units * 1e6) / 1e6} units` : ""}${dates > 1 ? ` - ${dates} dates` : ""}</span>
         <button class="secondary" data-action="shop" data-name="${n}" title="Add to the Home Assistant shopping list">Shopping list</button>
+        <button class="secondary" data-action="toggle-min" data-name="${n}" title="Minimum stock for the shopping list">Min stock${minVal !== "" ? `: ${minVal}` : ""}</button>
         <button class="secondary" data-action="toggle-add" data-name="${n}">${open ? "Close" : "Add"}</button></div>
-      <div class="fi-minrow" data-name="${n}" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0">
+      ${this._minOpen.has(name) ? `<div class="fi-minrow" data-name="${n}" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0">
         <small>Min stock (add to shopping list):</small>
         <input type="number" min="0" step="any" value="${minVal}" placeholder="off" data-f="min" style="width:80px" />
         <select data-f="minunit">
           <option value="packages"${minUnit === "packages" ? " selected" : ""}>Quantity</option>
           <option value="units"${minUnit === "units" ? " selected" : ""}>Units (per quantity)</option>
-        </select></div>
+        </select></div>` : ""}
       ${open ? `<div class="fi-addrow" data-name="${n}">
         <input type="number" min="1" value="1" placeholder="Quantity" data-f="quantity" />
         <input type="number" min="0" step="any" placeholder="Per package" data-f="package_size" />
