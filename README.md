@@ -1,5 +1,9 @@
 # Freezer Inventory
 
+[![Latest release](https://img.shields.io/github/v/release/skatter12/ha-freezer-inventory)](https://github.com/skatter12/ha-freezer-inventory/releases/latest)
+
+**Current version: 0.3.0**
+
 A Home Assistant integration that keeps track of what you have in your freezer.
 
 ## Installation (HACS)
@@ -41,6 +45,13 @@ data:
   unit: bags
   best_before: "2027-03-01"
 ```
+
+## Changelog
+
+- **0.3.0** – Package size and partial use (`use_amount`).
+- **0.2.2** – Panel updates immediately without a page refresh.
+- **0.2.0** – Sidebar panel with full UI.
+- **0.1.0** – Initial release.
 
 ## License
 
