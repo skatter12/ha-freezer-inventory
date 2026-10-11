@@ -14,18 +14,22 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    ATTR_AMOUNT,
     ATTR_BEST_BEFORE,
     ATTR_DATE_ADDED,
     ATTR_ITEMS,
     ATTR_NAME,
+    ATTR_PACKAGE_SIZE,
     ATTR_QUANTITY,
+    ATTR_REMAINING,
     ATTR_UNIT,
     DOMAIN,
     EVENT_UPDATED,
     SERVICE_ADD_ITEM,
     SERVICE_CLEAR,
-    SERVICE_SET_QUANTITY,
     SERVICE_REMOVE_ITEM,
+    SERVICE_SET_QUANTITY,
+    SERVICE_USE_AMOUNT,
     STORAGE_KEY,
     STORAGE_VERSION,
 )
@@ -34,7 +38,7 @@ PLATFORMS = ["sensor"]
 
 PANEL_URL_PATH = "freezer-inventory"
 PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
-PANEL_VERSION = "0.2.2"
+PANEL_VERSION = "0.3.0"
 PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
 ADD_SCHEMA = vol.Schema(
@@ -44,7 +48,18 @@ ADD_SCHEMA = vol.Schema(
             vol.Coerce(int), vol.Range(min=1)
         ),
         vol.Optional(ATTR_UNIT): cv.string,
+        vol.Optional(ATTR_PACKAGE_SIZE): vol.All(
+            vol.Coerce(float), vol.Range(min=0, min_included=False)
+        ),
         vol.Optional(ATTR_BEST_BEFORE): cv.date,
+    }
+)
+USE_AMOUNT_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_NAME): cv.string,
+        vol.Required(ATTR_AMOUNT): vol.All(
+            vol.Coerce(float), vol.Range(min=0, min_included=False)
+        ),
     }
 )
 SET_QUANTITY_SCHEMA = vol.Schema(
@@ -94,6 +109,7 @@ class FreezerInventory:
         quantity: int = 1,
         unit: str | None = None,
         best_before: str | None = None,
+        package_size: float | None = None,
     ) -> None:
         """Add an item or increase its quantity."""
         item = self._find(name)
@@ -102,6 +118,8 @@ class FreezerInventory:
                 ATTR_NAME: name.strip(),
                 ATTR_QUANTITY: 0,
                 ATTR_UNIT: unit,
+                ATTR_PACKAGE_SIZE: None,
+                ATTR_REMAINING: None,
                 ATTR_DATE_ADDED: dt_util.now().date().isoformat(),
                 ATTR_BEST_BEFORE: None,
             }
@@ -109,8 +127,38 @@ class FreezerInventory:
         item[ATTR_QUANTITY] += quantity
         if unit:
             item[ATTR_UNIT] = unit
+        if package_size:
+            if item.get(ATTR_PACKAGE_SIZE) != package_size:
+                item[ATTR_PACKAGE_SIZE] = package_size
+                item[ATTR_REMAINING] = package_size
+        if item.get(ATTR_PACKAGE_SIZE) and item.get(ATTR_REMAINING) is None:
+            item[ATTR_REMAINING] = item[ATTR_PACKAGE_SIZE]
         if best_before:
             item[ATTR_BEST_BEFORE] = best_before
+        self._changed()
+
+    @callback
+    def async_use_amount(self, name: str, amount: float) -> None:
+        """Use part of the contents; opens the next package when one is used up."""
+        item = self._find(name)
+        if item is None or not item.get(ATTR_PACKAGE_SIZE):
+            return
+        size = item[ATTR_PACKAGE_SIZE]
+        remaining = item.get(ATTR_REMAINING)
+        if remaining is None:
+            remaining = size
+        while amount > 1e-9 and item[ATTR_QUANTITY] > 0:
+            if amount < remaining - 1e-9:
+                remaining = round(remaining - amount, 6)
+                amount = 0
+            else:
+                amount = round(amount - remaining, 6)
+                item[ATTR_QUANTITY] -= 1
+                remaining = size
+        if item[ATTR_QUANTITY] <= 0:
+            self.items.remove(item)
+        else:
+            item[ATTR_REMAINING] = remaining
         self._changed()
 
     @callback
@@ -157,7 +205,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             call.data[ATTR_QUANTITY],
             call.data.get(ATTR_UNIT),
             best_before.isoformat() if best_before else None,
+            call.data.get(ATTR_PACKAGE_SIZE),
         )
+
+    async def use_amount(call: ServiceCall) -> None:
+        inventory.async_use_amount(call.data[ATTR_NAME], call.data[ATTR_AMOUNT])
 
     async def remove_item(call: ServiceCall) -> None:
         inventory.async_remove(call.data[ATTR_NAME], call.data.get(ATTR_QUANTITY))
@@ -173,6 +225,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DOMAIN, SERVICE_REMOVE_ITEM, remove_item, REMOVE_SCHEMA
     )
     hass.services.async_register(DOMAIN, SERVICE_CLEAR, clear)
+    hass.services.async_register(
+        DOMAIN, SERVICE_USE_AMOUNT, use_amount, USE_AMOUNT_SCHEMA
+    )
     hass.services.async_register(
         DOMAIN, SERVICE_SET_QUANTITY, set_quantity, SET_QUANTITY_SCHEMA
     )
@@ -210,6 +265,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         SERVICE_ADD_ITEM,
         SERVICE_REMOVE_ITEM,
         SERVICE_SET_QUANTITY,
+        SERVICE_USE_AMOUNT,
         SERVICE_CLEAR,
     ):
         hass.services.async_remove(DOMAIN, service)

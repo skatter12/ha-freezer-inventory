@@ -23,7 +23,13 @@ The same functionality is available to automations and scripts:
 - Services:
   - `freezer_inventory.add_item` – `name`, optional `quantity`, `unit`, `best_before`. Adds to the quantity if the item already exists.
   - `freezer_inventory.remove_item` – `name`, optional `quantity` (omit to remove the whole item).
+  - `freezer_inventory.set_quantity` – `name`, `quantity` (0 removes the item).
+  - `freezer_inventory.use_amount` – `name`, `amount`. Uses part of a package without removing it (see below).
   - `freezer_inventory.clear` – empties the inventory.
+
+### Partial use of a package
+
+Set **Unit** (e.g. `pcs`) and **Per package** (e.g. `10`) when adding an item. With 2 packages of 10, using 5 leaves 2 packages with 5 left in the open one; using 5 more opens the next package. Use the "Use" field in the panel or the `use_amount` service.
 
 Example:
 

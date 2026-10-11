@@ -28,7 +28,7 @@ class FreezerInventoryPanel extends HTMLElement {
         .fi-wrap h1 { margin: 0 0 16px; font-size: 24px; font-weight: 400; }
         .fi-card { background: var(--card-background-color, #fff); border-radius: 12px;
           padding: 16px; margin-bottom: 16px; box-shadow: var(--ha-card-box-shadow, 0 1px 3px rgba(0,0,0,.2)); }
-        .fi-wrap form { display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr auto; gap: 8px; align-items: end; }
+        .fi-wrap form { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1.5fr auto; gap: 8px; align-items: end; }
         .fi-wrap label { display: flex; flex-direction: column; font-size: 12px; gap: 4px; color: var(--secondary-text-color); }
         .fi-wrap input { padding: 8px; border-radius: 6px; font-size: 14px; box-sizing: border-box; width: 100%;
           border: 1px solid var(--divider-color, #ccc);
@@ -49,6 +49,9 @@ class FreezerInventoryPanel extends HTMLElement {
         .fi-expired { color: var(--error-color, #db4437); font-weight: 500; }
         .fi-soon { color: var(--warning-color, #f4a100); font-weight: 500; }
         .fi-wrap input.fi-qty { width: 70px; text-align: center; font-size: 16px; }
+        .fi-use { display: flex; gap: 6px; margin-top: 6px; }
+        .fi-wrap .fi-use input { width: 90px; padding: 4px 6px; }
+        .fi-wrap .fi-use button { padding: 4px 10px; }
         .fi-empty { text-align: center; color: var(--secondary-text-color); padding: 24px 0; }
         @media (max-width: 600px) { .fi-wrap form { grid-template-columns: 1fr 1fr; } }
       </style>
@@ -58,7 +61,8 @@ class FreezerInventoryPanel extends HTMLElement {
           <form id="add">
             <label>Name<input name="name" required placeholder="e.g. Minced beef" /></label>
             <label>Quantity<input name="quantity" type="number" min="1" value="1" required /></label>
-            <label>Unit<input name="unit" placeholder="e.g. bags" /></label>
+            <label>Unit<input name="unit" placeholder="e.g. pcs" /></label>
+            <label>Per package<input name="package_size" type="number" min="0" step="any" placeholder="e.g. 10" /></label>
             <label>Best before<input name="best_before" type="date" /></label>
             <button type="submit">Add</button>
           </form>
@@ -81,6 +85,7 @@ class FreezerInventoryPanel extends HTMLElement {
         quantity: parseInt(form.quantity.value, 10) || 1,
       };
       if (form.unit.value.trim()) data.unit = form.unit.value.trim();
+      if (parseFloat(form.package_size.value) > 0) data.package_size = parseFloat(form.package_size.value);
       if (form.best_before.value) data.best_before = form.best_before.value;
       await this._hass.callService("freezer_inventory", "add_item", data);
       this._refreshSoon();
@@ -107,6 +112,12 @@ class FreezerInventoryPanel extends HTMLElement {
       if (!btn) return;
       const name = btn.dataset.name;
       const qty = parseInt(btn.dataset.qty, 10) || 0;
+      if (btn.dataset.action === "use") {
+        const input = btn.parentElement.querySelector("input[data-action='use-amount']");
+        const amount = parseFloat(input.value);
+        if (amount > 0) this._call("use_amount", { name, amount });
+        return;
+      }
       if (btn.dataset.action === "inc") {
         this._call("set_quantity", { name, quantity: qty + 1 });
       } else if (btn.dataset.action === "dec") {
@@ -186,10 +197,19 @@ class FreezerInventoryPanel extends HTMLElement {
           <div class="fi-info">
             <div class="fi-name">${this._esc(i.name)}</div>
             <div class="fi-meta">Added ${this._esc(i.date_added)} ${this._expiry(i.best_before)}</div>
+            ${
+              i.package_size
+                ? `<div class="fi-meta">Open package: ${i.remaining ?? i.package_size} / ${i.package_size} ${this._esc(i.unit)}</div>
+                   <div class="fi-use">
+                     <input type="number" min="0" step="any" placeholder="Used" data-action="use-amount" />
+                     <button class="secondary" data-action="use" data-name="${this._esc(i.name)}">Use ${this._esc(i.unit)}</button>
+                   </div>`
+                : ""
+            }
           </div>
           <button class="secondary" data-action="dec" data-name="${this._esc(i.name)}" data-qty="${i.quantity}">−</button>
           <input class="fi-qty" type="number" min="0" value="${i.quantity}" data-action="set" data-name="${this._esc(i.name)}" />
-          <span>${i.unit ? this._esc(i.unit) : ""}</span>
+          <span>${i.package_size ? "pkg" : i.unit ? this._esc(i.unit) : ""}</span>
           <button class="secondary" data-action="inc" data-name="${this._esc(i.name)}" data-qty="${i.quantity}">+</button>
           <button class="danger" data-action="del" data-name="${this._esc(i.name)}">Delete</button>
         </div>`
