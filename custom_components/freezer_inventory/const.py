@@ -24,11 +24,13 @@ ATTR_DATE_ADDED = "date_added"
 ATTR_BEST_BEFORE = "best_before"
 ATTR_ITEMS = "items"
 ATTR_LOCATION = "location"
+ATTR_APPLIANCE = "appliance"
 
 CONF_FREEZER_TEMP = "freezer_temperature_entity"
 CONF_FRIDGE_TEMP = "fridge_temperature_entity"
 CONF_APPLIANCES = "appliances"
 CONF_SHOP_ON_EMPTY = "shopping_list_on_empty"
+CONF_SHOP_MIN = "shopping_list_min_stock"
 CONF_SHOP_ON_ADD = "shopping_list_on_add"
 
 LOCATION_FREEZER = "freezer"

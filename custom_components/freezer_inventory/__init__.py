@@ -31,6 +31,7 @@ from .const import (
     ATTR_UNITS,
     CONF_APPLIANCES,
     CONF_SHOP_ON_ADD,
+    CONF_SHOP_MIN,
     CONF_SHOP_ON_EMPTY,
     DOMAIN,
     EVENT_UPDATED,
@@ -51,7 +52,7 @@ PLATFORMS = ["sensor"]
 
 PANEL_URL_PATH = "freezer-inventory"
 PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
-PANEL_VERSION = "1.1.0"
+PANEL_VERSION = "1.2.0"
 PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
 LOCATION = vol.All(vol.Lower, vol.In(LOCATIONS))
@@ -139,6 +140,7 @@ class FreezerInventory:
         self.revision = 0
         self.appliances: list[dict[str, Any]] = []
         self.shop_on_empty = False
+        self.shop_min: float = 0
         self.shop_on_add = False
         self._store: Store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
 
@@ -177,17 +179,29 @@ class FreezerInventory:
         if self.hass.services.has_service("shopping_list", service):
             self.hass.async_create_task(self._async_shop(service, name))
 
-    def _after_remove(self, item: dict[str, Any]) -> None:
-        """Add the item to the shopping list when no batch of it is left."""
+    def _stock(self, name: str, location: str, appliance: str | None) -> float:
+        """Total units of an item across its batches."""
+        total = 0.0
+        for i in self._matches(name, None, location, appliance):
+            size = i.get(ATTR_PACKAGE_SIZE)
+            if size:
+                remaining = i.get(ATTR_REMAINING)
+                if remaining is None:
+                    remaining = size
+                total += (i[ATTR_QUANTITY] - 1) * size + remaining
+            else:
+                total += i[ATTR_QUANTITY]
+        return total
+
+    def _check_stock(
+        self, name: str, location: str, appliance: str | None, before: float
+    ) -> None:
+        """Add to the shopping list when stock drops to the minimum or below."""
         if not self.shop_on_empty:
             return
-        if not any(
-            i[ATTR_NAME].casefold() == item[ATTR_NAME].casefold()
-            and i[ATTR_LOCATION] == item[ATTR_LOCATION]
-            and i.get(ATTR_APPLIANCE) == item.get(ATTR_APPLIANCE)
-            for i in self.items
-        ):
-            self._shop("add_item", item[ATTR_NAME])
+        after = self._stock(name, location, appliance)
+        if before > self.shop_min and after <= self.shop_min + 1e-9:
+            self._shop("add_item", name)
 
     @callback
     def _changed(self) -> None:
@@ -282,11 +296,12 @@ class FreezerInventory:
         item = self._find(name, item_id, location, appliance)
         if item is None:
             return
+        before = self._stock(name, location, appliance)
         if quantity is None or quantity >= item[ATTR_QUANTITY]:
             self.items.remove(item)
-            self._after_remove(item)
         else:
             item[ATTR_QUANTITY] -= quantity
+        self._check_stock(item[ATTR_NAME], item[ATTR_LOCATION], item.get(ATTR_APPLIANCE), before)
         self._changed()
 
     @callback
@@ -302,11 +317,12 @@ class FreezerInventory:
         item = self._find(name, item_id, location, appliance)
         if item is None:
             return
+        before = self._stock(name, location, appliance)
         if quantity <= 0:
             self.items.remove(item)
-            self._after_remove(item)
         else:
             item[ATTR_QUANTITY] = quantity
+        self._check_stock(item[ATTR_NAME], item[ATTR_LOCATION], item.get(ATTR_APPLIANCE), before)
         self._changed()
 
     @callback
@@ -322,14 +338,15 @@ class FreezerInventory:
         item = self._find(name, item_id, location, appliance)
         if item is None or not item.get(ATTR_PACKAGE_SIZE):
             return
+        before = self._stock(name, location, appliance)
         size = item[ATTR_PACKAGE_SIZE]
         if units <= 1e-9:
             self.items.remove(item)
-            self._after_remove(item)
         else:
             packages = math.ceil(units / size - 1e-9)
             item[ATTR_QUANTITY] = packages
             item[ATTR_REMAINING] = round(units - (packages - 1) * size, 6)
+        self._check_stock(item[ATTR_NAME], item[ATTR_LOCATION], item.get(ATTR_APPLIANCE), before)
         self._changed()
 
     @callback
@@ -346,6 +363,7 @@ class FreezerInventory:
         Without an id, the oldest best-before batch is used first.
         """
         changed = False
+        before = self._stock(name, location, appliance)
         for item in list(self._matches(name, item_id, location, appliance)):
             if amount <= 1e-9:
                 break
@@ -366,10 +384,10 @@ class FreezerInventory:
                     remaining = size
             if item[ATTR_QUANTITY] <= 0:
                 self.items.remove(item)
-                self._after_remove(item)
             else:
                 item[ATTR_REMAINING] = remaining
         if changed:
+            self._check_stock(name, location, appliance, before)
             self._changed()
 
     @callback
@@ -415,6 +433,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     conf = {**entry.data, **entry.options}
     inventory.appliances = list(conf.get(CONF_APPLIANCES) or [])
     inventory.shop_on_empty = bool(conf.get(CONF_SHOP_ON_EMPTY))
+    inventory.shop_min = float(conf.get(CONF_SHOP_MIN) or 0)
     inventory.shop_on_add = bool(conf.get(CONF_SHOP_ON_ADD))
     await inventory.async_load()
     hass.data[DOMAIN] = inventory
