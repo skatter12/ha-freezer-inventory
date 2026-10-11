@@ -1,8 +1,8 @@
-# Freezer Inventory
+# Fridge/Freezer Inventory
 
 [![Latest release](https://img.shields.io/github/v/release/skatter12/ha-freezer-inventory)](https://github.com/skatter12/ha-freezer-inventory/releases/latest)
 
-**Current version: 1.7.1**
+**Current version: 1.8.0**
 
 A Home Assistant integration that keeps track of what you have in your freezer.
 
@@ -10,8 +10,8 @@ A Home Assistant integration that keeps track of what you have in your freezer.
 
 1. In HACS, open the menu (top right) - **Custom repositories**.
 2. Add `https://github.com/skatter12/ha-freezer-inventory` with category **Integration**.
-3. Install **Freezer Inventory** and restart Home Assistant.
-4. Go to **Settings - Devices & Services - Add Integration** and search for "Freezer Inventory".
+3. Install **Fridge/Freezer Inventory** and restart Home Assistant.
+4. Go to **Settings - Devices & Services - Add Integration** and search for "Fridge/Freezer Inventory".
 
 ### Manual
 
@@ -35,7 +35,7 @@ Adding an item that already exists adds to it. If you give a **different best-be
 
 ## Multiple freezers and fridges
 
-Under **Settings - Devices & Services - Freezer Inventory - Configure** you can add extra freezers and fridges with a name (and an optional temperature entity), rename them, and remove them again. Each one gets its own tab and its own sensor (`sensor.freezer_inventory_<id>`).
+Under **Settings - Devices & Services - Fridge/Freezer Inventory - Configure** you can add extra freezers and fridges with a name (and an optional temperature entity), rename them, and remove them again. Each one gets its own tab and its own sensor (`sensor.freezer_inventory_<id>`).
 
 When adding an item, pick the freezer or fridge in the **Place** field (shown once you have more than the defaults). Leave it as is to use the current tab. Removing a freezer or fridge moves its items back to the default Freezer or Fridge.
 
@@ -43,7 +43,7 @@ Services accept an optional `appliance` (the name of an extra freezer or fridge)
 
 ## Temperature
 
-When adding the integration you can pick a temperature entity (sensor or input_number) for the freezer and for the fridge. Change them later under **Settings - Devices & Services - Freezer Inventory - Configure**. The current temperature is shown in the tabs and under them.
+When adding the integration you can pick a temperature entity (sensor or input_number) for the freezer and for the fridge. Change them later under **Settings - Devices & Services - Fridge/Freezer Inventory - Configure**. The current temperature is shown in the tabs and under them.
 
 ## Shopping list
 
@@ -79,6 +79,7 @@ data:
 
 ## Changelog
 
+- **1.8.0** - Renamed to Fridge/Freezer Inventory and added an integration icon.
 - **1.7.1** - Panel labels: "Packages" is now "Units", and the old total "Units" is now "Total".
 - **1.7.0** - Packages of different sizes with the same best-before date share one batch (e.g. 1 x 10 + 1 x 6 = 16). "Quantity" renamed to "Packages". Existing data is migrated automatically.
 - **1.6.1** - Changing a batch date to one that already exists merges the two batches (same package size).

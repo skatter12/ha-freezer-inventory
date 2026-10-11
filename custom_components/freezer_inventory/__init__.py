@@ -60,7 +60,7 @@ PLATFORMS = ["sensor"]
 
 PANEL_URL_PATH = "freezer-inventory"
 PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
-PANEL_VERSION = "1.7.1"
+PANEL_VERSION = "1.8.0"
 PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
 LOCATION = vol.All(vol.Lower, vol.In(LOCATIONS))
@@ -734,7 +734,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
         webcomponent_name="freezer-inventory-panel",
         frontend_url_path=PANEL_URL_PATH,
         module_url=f"{PANEL_STATIC_URL}?v={PANEL_VERSION}",
-        sidebar_title="Freezer & Fridge",
+        sidebar_title="Fridge/Freezer",
         sidebar_icon="mdi:fridge-industrial-outline",
         require_admin=False,
     )

@@ -274,7 +274,7 @@ class FreezerInventoryPanel extends HTMLElement {
       });
     } catch (err) {
       ok = false;
-      alert(`Freezer Inventory: ${err.message || err}`);
+      alert(`Fridge/Freezer Inventory: ${err.message || err}`);
     }
     this._refreshSoon();
     return ok;
