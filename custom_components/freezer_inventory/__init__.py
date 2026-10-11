@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import math
 from typing import Any
 
 import voluptuous as vol
@@ -23,12 +24,14 @@ from .const import (
     ATTR_QUANTITY,
     ATTR_REMAINING,
     ATTR_UNIT,
+    ATTR_UNITS,
     DOMAIN,
     EVENT_UPDATED,
     SERVICE_ADD_ITEM,
     SERVICE_CLEAR,
     SERVICE_REMOVE_ITEM,
     SERVICE_SET_QUANTITY,
+    SERVICE_SET_UNITS,
     SERVICE_USE_AMOUNT,
     STORAGE_KEY,
     STORAGE_VERSION,
@@ -38,7 +41,7 @@ PLATFORMS = ["sensor"]
 
 PANEL_URL_PATH = "freezer-inventory"
 PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
-PANEL_VERSION = "0.3.0"
+PANEL_VERSION = "0.4.0"
 PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
 ADD_SCHEMA = vol.Schema(
@@ -52,6 +55,12 @@ ADD_SCHEMA = vol.Schema(
             vol.Coerce(float), vol.Range(min=0, min_included=False)
         ),
         vol.Optional(ATTR_BEST_BEFORE): cv.date,
+    }
+)
+SET_UNITS_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_NAME): cv.string,
+        vol.Required(ATTR_UNITS): vol.All(vol.Coerce(float), vol.Range(min=0)),
     }
 )
 USE_AMOUNT_SCHEMA = vol.Schema(
@@ -174,8 +183,23 @@ class FreezerInventory:
         self._changed()
 
     @callback
+    def async_set_units(self, name: str, units: float) -> None:
+        """Set the total units; packages are recalculated (last one may be partial)."""
+        item = self._find(name)
+        if item is None or not item.get(ATTR_PACKAGE_SIZE):
+            return
+        size = item[ATTR_PACKAGE_SIZE]
+        if units <= 1e-9:
+            self.items.remove(item)
+        else:
+            packages = math.ceil(units / size - 1e-9)
+            item[ATTR_QUANTITY] = packages
+            item[ATTR_REMAINING] = round(units - (packages - 1) * size, 6)
+        self._changed()
+
+    @callback
     def async_set_quantity(self, name: str, quantity: int) -> None:
-        """Set the quantity of an existing item (0 removes it)."""
+        """Set the number of packages (0 removes the item)."""
         item = self._find(name)
         if item is None:
             return
@@ -208,6 +232,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             call.data.get(ATTR_PACKAGE_SIZE),
         )
 
+    async def set_units(call: ServiceCall) -> None:
+        inventory.async_set_units(call.data[ATTR_NAME], call.data[ATTR_UNITS])
+
     async def use_amount(call: ServiceCall) -> None:
         inventory.async_use_amount(call.data[ATTR_NAME], call.data[ATTR_AMOUNT])
 
@@ -225,6 +252,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DOMAIN, SERVICE_REMOVE_ITEM, remove_item, REMOVE_SCHEMA
     )
     hass.services.async_register(DOMAIN, SERVICE_CLEAR, clear)
+    hass.services.async_register(
+        DOMAIN, SERVICE_SET_UNITS, set_units, SET_UNITS_SCHEMA
+    )
     hass.services.async_register(
         DOMAIN, SERVICE_USE_AMOUNT, use_amount, USE_AMOUNT_SCHEMA
     )
@@ -265,6 +295,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         SERVICE_ADD_ITEM,
         SERVICE_REMOVE_ITEM,
         SERVICE_SET_QUANTITY,
+        SERVICE_SET_UNITS,
         SERVICE_USE_AMOUNT,
         SERVICE_CLEAR,
     ):

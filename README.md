@@ -2,7 +2,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/skatter12/ha-freezer-inventory)](https://github.com/skatter12/ha-freezer-inventory/releases/latest)
 
-**Current version: 0.3.0**
+**Current version: 0.4.0**
 
 A Home Assistant integration that keeps track of what you have in your freezer.
 
@@ -28,12 +28,13 @@ The same functionality is available to automations and scripts:
   - `freezer_inventory.add_item` – `name`, optional `quantity`, `unit`, `best_before`. Adds to the quantity if the item already exists.
   - `freezer_inventory.remove_item` – `name`, optional `quantity` (omit to remove the whole item).
   - `freezer_inventory.set_quantity` – `name`, `quantity` (0 removes the item).
+  - `freezer_inventory.set_units` – `name`, `units`. Sets the total units; packages are recalculated.
   - `freezer_inventory.use_amount` – `name`, `amount`. Uses part of a package without removing it (see below).
   - `freezer_inventory.clear` – empties the inventory.
 
 ### Partial use of a package
 
-Set **Unit** (e.g. `pcs`) and **Per package** (e.g. `10`) when adding an item. With 2 packages of 10, using 5 leaves 2 packages with 5 left in the open one; using 5 more opens the next package. Use the "Use" field in the panel or the `use_amount` service.
+Set **Unit** (e.g. `pcs`) and **Per package** (e.g. `4`) when adding an item. With 2 packages of 4, using 2 gives `1 × 4 + 1 × 2 = 6 pcs`. The panel shows this breakdown and lets you edit both the number of **Packages** and the total **units**; the packages are recalculated automatically (e.g. setting 5 units gives 2 packages: 4 + 1). Use the "Use" field in the panel or the `use_amount` service to take out part of a package.
 
 Example:
 
@@ -48,6 +49,7 @@ data:
 
 ## Changelog
 
+- **0.4.0** – Panel shows packages and total units (e.g. 4 + 2 = 6) and both can be edited (`set_units`).
 - **0.3.0** – Package size and partial use (`use_amount`).
 - **0.2.2** – Panel updates immediately without a page refresh.
 - **0.2.0** – Sidebar panel with full UI.

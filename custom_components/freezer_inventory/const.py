@@ -10,6 +10,8 @@ SERVICE_REMOVE_ITEM = "remove_item"
 SERVICE_CLEAR = "clear"
 SERVICE_SET_QUANTITY = "set_quantity"
 SERVICE_USE_AMOUNT = "use_amount"
+SERVICE_SET_UNITS = "set_units"
+ATTR_UNITS = "units"
 
 ATTR_NAME = "name"
 ATTR_QUANTITY = "quantity"

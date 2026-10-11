@@ -52,6 +52,7 @@ class FreezerInventoryPanel extends HTMLElement {
         .fi-use { display: flex; gap: 6px; margin-top: 6px; }
         .fi-wrap .fi-use input { width: 90px; padding: 4px 6px; }
         .fi-wrap .fi-use button { padding: 4px 10px; }
+        .fi-field { display: flex; flex-direction: column; font-size: 11px; align-items: center; }
         .fi-empty { text-align: center; color: var(--secondary-text-color); padding: 24px 0; }
         @media (max-width: 600px) { .fi-wrap form { grid-template-columns: 1fr 1fr; } }
       </style>
@@ -128,6 +129,17 @@ class FreezerInventoryPanel extends HTMLElement {
     });
 
     this.querySelector("#list").addEventListener("change", (ev) => {
+      const unitsInput = ev.target.closest("input[data-action='set-units']");
+      if (unitsInput) {
+        const units = parseFloat(unitsInput.value);
+        if (Number.isNaN(units) || units < 0) {
+          this._lastItems = null;
+          this._renderList();
+          return;
+        }
+        this._call("set_units", { name: unitsInput.dataset.name, units });
+        return;
+      }
       const input = ev.target.closest("input[data-action='set']");
       if (!input) return;
       const quantity = parseInt(input.value, 10);
@@ -173,6 +185,21 @@ class FreezerInventoryPanel extends HTMLElement {
     return `Best before ${this._esc(bestBefore)}`;
   }
 
+  _totalUnits(i) {
+    const remaining = i.remaining ?? i.package_size;
+    return Math.round(((i.quantity - 1) * i.package_size + remaining) * 1e6) / 1e6;
+  }
+
+  _breakdown(i) {
+    const unit = this._esc(i.unit);
+    const remaining = i.remaining ?? i.package_size;
+    const full = i.quantity - 1;
+    const parts = [];
+    if (full > 0) parts.push(`${full} × ${i.package_size}`);
+    parts.push(`1 × ${remaining}`);
+    return `${parts.join(" + ")} = ${this._totalUnits(i)} ${unit}`;
+  }
+
   _renderList() {
     const stateObj = this._hass.states[ENTITY_ID];
     const items = (stateObj && stateObj.attributes.items) || [];
@@ -199,7 +226,7 @@ class FreezerInventoryPanel extends HTMLElement {
             <div class="fi-meta">Added ${this._esc(i.date_added)} ${this._expiry(i.best_before)}</div>
             ${
               i.package_size
-                ? `<div class="fi-meta">Open package: ${i.remaining ?? i.package_size} / ${i.package_size} ${this._esc(i.unit)}</div>
+                ? `<div class="fi-meta">${this._breakdown(i)}</div>
                    <div class="fi-use">
                      <input type="number" min="0" step="any" placeholder="Used" data-action="use-amount" />
                      <button class="secondary" data-action="use" data-name="${this._esc(i.name)}">Use ${this._esc(i.unit)}</button>
@@ -208,9 +235,17 @@ class FreezerInventoryPanel extends HTMLElement {
             }
           </div>
           <button class="secondary" data-action="dec" data-name="${this._esc(i.name)}" data-qty="${i.quantity}">−</button>
-          <input class="fi-qty" type="number" min="0" value="${i.quantity}" data-action="set" data-name="${this._esc(i.name)}" />
-          <span>${i.package_size ? "pkg" : i.unit ? this._esc(i.unit) : ""}</span>
+          <label class="fi-field">Packages
+            <input class="fi-qty" type="number" min="0" value="${i.quantity}" data-action="set" data-name="${this._esc(i.name)}" />
+          </label>
           <button class="secondary" data-action="inc" data-name="${this._esc(i.name)}" data-qty="${i.quantity}">+</button>
+          ${
+            i.package_size
+              ? `<label class="fi-field">${this._esc(i.unit) || "Units"}
+                   <input class="fi-qty" type="number" min="0" step="any" value="${this._totalUnits(i)}" data-action="set-units" data-name="${this._esc(i.name)}" />
+                 </label>`
+              : ""
+          }
           <button class="danger" data-action="del" data-name="${this._esc(i.name)}">Delete</button>
         </div>`
           )
