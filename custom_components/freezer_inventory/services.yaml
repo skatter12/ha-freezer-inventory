@@ -1,0 +1,53 @@
+add_item:
+  name: Add item
+  description: Add an item to the freezer (increases quantity if it already exists).
+  fields:
+    name:
+      name: Name
+      description: Name of the item.
+      required: true
+      example: Minced beef
+      selector:
+        text:
+    quantity:
+      name: Quantity
+      description: How many to add.
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 1000
+          mode: box
+    unit:
+      name: Unit
+      description: Unit, e.g. pcs, bags, kg.
+      example: bags
+      selector:
+        text:
+    best_before:
+      name: Best before
+      description: Optional best-before date.
+      selector:
+        date:
+remove_item:
+  name: Remove item
+  description: Remove a quantity of an item from the freezer.
+  fields:
+    name:
+      name: Name
+      description: Name of the item.
+      required: true
+      example: Minced beef
+      selector:
+        text:
+    quantity:
+      name: Quantity
+      description: How many to remove. Omit to remove the whole item.
+      selector:
+        number:
+          min: 1
+          max: 1000
+          mode: box
+clear:
+  name: Clear
+  description: Remove everything from the freezer inventory.
