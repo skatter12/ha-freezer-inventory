@@ -34,7 +34,7 @@ PLATFORMS = ["sensor"]
 
 PANEL_URL_PATH = "freezer-inventory"
 PANEL_STATIC_URL = "/freezer_inventory_static/freezer-inventory-panel.js"
-PANEL_VERSION = "0.2.1"
+PANEL_VERSION = "0.2.2"
 PANEL_FILE = Path(__file__).parent / "frontend" / "freezer-inventory-panel.js"
 
 ADD_SCHEMA = vol.Schema(
@@ -54,6 +54,7 @@ SET_QUANTITY_SCHEMA = vol.Schema(
     }
 )
 
+REMOVE_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_NAME): cv.string,
         vol.Optional(ATTR_QUANTITY): vol.All(vol.Coerce(int), vol.Range(min=1)),
@@ -68,6 +69,7 @@ class FreezerInventory:
         """Initialize."""
         self.hass = hass
         self.items: list[dict[str, Any]] = []
+        self.revision = 0
         self._store: Store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
 
     async def async_load(self) -> None:
@@ -77,6 +79,7 @@ class FreezerInventory:
 
     @callback
     def _changed(self) -> None:
+        self.revision += 1
         self._store.async_delay_save(lambda: {ATTR_ITEMS: self.items}, 1)
         self.hass.bus.async_fire(EVENT_UPDATED)
 

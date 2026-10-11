@@ -37,7 +37,10 @@ class FreezerSensor(SensorEntity):
     @property
     def extra_state_attributes(self) -> dict:
         """Return the item list."""
-        return {ATTR_ITEMS: [dict(item) for item in self._inventory.items]}
+        return {
+            ATTR_ITEMS: [dict(item) for item in self._inventory.items],
+            "revision": self._inventory.revision,
+        }
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to inventory updates."""

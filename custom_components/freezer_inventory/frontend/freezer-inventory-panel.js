@@ -83,6 +83,7 @@ class FreezerInventoryPanel extends HTMLElement {
       if (form.unit.value.trim()) data.unit = form.unit.value.trim();
       if (form.best_before.value) data.best_before = form.best_before.value;
       await this._hass.callService("freezer_inventory", "add_item", data);
+      this._refreshSoon();
       form.reset();
       form.quantity.value = 1;
       form.name.focus();
@@ -97,6 +98,7 @@ class FreezerInventoryPanel extends HTMLElement {
     this.querySelector("#clear").addEventListener("click", () => {
       if (confirm("Remove everything from the freezer inventory?")) {
         this._hass.callService("freezer_inventory", "clear", {});
+        this._refreshSoon();
       }
     });
 
@@ -132,6 +134,17 @@ class FreezerInventoryPanel extends HTMLElement {
       await this._hass.callService("freezer_inventory", service, data);
     } catch (err) {
       alert(`Freezer Inventory: ${err.message || err}`);
+    }
+    this._refreshSoon();
+  }
+
+  // Re-render shortly after a change, in case the state push is delayed.
+  _refreshSoon() {
+    for (const delay of [150, 600]) {
+      setTimeout(() => {
+        this._lastItems = null;
+        this._renderList();
+      }, delay);
     }
   }
 
