@@ -84,14 +84,6 @@ data:
 - **1.2.0** - Fixes a missing constant in 1.1.0 that stopped the integration from loading. Automatic shopping list can be switched on/off, with a minimum stock level that triggers adding the item.
 - **1.1.0** - Add several named freezers and fridges (add, rename, remove under Configure), choose one when adding items.
 - **1.0.0** - First stable release.
-- **0.10.1** - Pressing - on the last package asks whether to remove the batch.
-- **0.10.0** - Shopping List integration: button per item, optional auto-add when an item runs out and auto-complete when stock is added.
-- **0.9.1** - Temperature shown on its own line in the tabs.
-- **0.9.0** - Optional freezer and fridge temperature entities in the setup and options, shown in the panel.
-- **0.8.0** - Freezer and Fridge tabs with identical features; a `location` option on all services and a new `sensor.fridge_items`. Existing items stay in the freezer.
-- **0.7.1** - Fixed README encoding so HACS shows it.
-- **0.7.0** - Selectable date format (saved per browser), each item in its own rounded box, earliest best-before date first and shown as a prominent badge.
-- **0.6.0** - Items are grouped by name with a total and "N dates" label; each item has an **Add** button for adding quantity, per package and a new best-before date.
 
 ## License
 
